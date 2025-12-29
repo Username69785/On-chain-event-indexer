@@ -1,41 +1,34 @@
-use reqwest::Client;
-use serde_json::{self, json};
 use anyhow::Result;
-use std::fs;
+use std::{fs::OpenOptions, io::Write};
 
-#[derive(serde::Deserialize, Debug)]
-struct Signature {
-    blockTime: u32,
-    confirmationStatus: String,
-    err: Option<String>,
-    memo: Option<String>,
-    signature: String,
-    slot: u32,
-}
-
-#[derive(serde::Deserialize, Debug)]
-struct RpcResponse {
-    result: Vec<Signature>,
-}
+mod requests;
+use requests::*;
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    let client = Client::new();
-    let body = json!({
-        "jsonrpc": "2.0",
-        "id": "1",
-        "method": "getSignaturesForAddress",
-        "params": ["FCnD9Z8cwHjBcA8AW8c9VT974N99E2UNoFhZfbQDRiTP"]
-    });
+    let helius_api = HeliusApi::new();
 
-    let response = client.post("https://mainnet.helius-rpc.com/?api-key=7eea4741-97b9-45a3-9d67-e31cae965197")
-    .json(&body)
-    .send()
-    .await?;
+    let mut file = OpenOptions::new()
+        .append(true)
+        .create(true)
+        .write(true)
+        .open("respnse.txt")?;
 
-    let response_text: RpcResponse = response.json().await?;
+    let mut cur_last_signature: Option<String> = None;
 
-    println!("len: {}", response_text.result.len());
+    loop {
+        let (responce, last_signature) = helius_api
+        .get_signatures("2ZCQ18QjibZZCPfcCesdZ1y2WMmZKd5rKZLyc2sjYGir", cur_last_signature).await?;
+
+        let response_text = format!("{:#?}", responce.result);
+        file.write_all(response_text.as_bytes())?;
+
+        if responce.result.len() < 1000 {
+            break;
+        }
+
+        cur_last_signature = Some(last_signature);
+    }
 
     Ok(())
 }
