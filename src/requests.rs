@@ -46,6 +46,7 @@ impl HeliusApi {
         let api = dotenvy::var("api").expect("api не найден в .env");
         let client = Client::new();
         let url = String::from("https://mainnet.helius-rpc.com/?api-key=");
+
         HeliusApi { api, url, client}
     }
 
