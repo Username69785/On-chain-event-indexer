@@ -22,18 +22,36 @@ struct Params<'a> {
     before: Option<&'a str>,
 }
 
+#[derive(Deserialize, Serialize, Debug, sqlx::Type)]
+#[serde(rename_all = "lowercase")] 
+pub enum ConfirmationStatus {
+    Processed,
+    Confirmed,
+    Finalized,
+}
+
+impl ConfirmationStatus {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            ConfirmationStatus::Processed => "processed",
+            ConfirmationStatus::Confirmed => "confirmed",
+            ConfirmationStatus::Finalized => "finalized",
+        }
+    }
+}
+
 #[derive(serde::Deserialize, Debug)]
 pub struct Signature {
     #[serde(rename = "blockTime")]
-    block_time: u32,
+    pub block_time: i64,
 
     #[serde(rename = "confirmationStatus")]
-    confirmation_status: String,
+    pub confirmation_status: Option<ConfirmationStatus>,
 
-    err: serde_json::Value,
-    memo: Option<String>,
+    pub err: serde_json::Value,
+    // memo: Option<String>,
     pub signature: String,
-    slot: u32,
+    pub slot: i64,
 }
 
 #[derive(serde::Deserialize, Debug)]    
@@ -59,7 +77,7 @@ impl HeliusApi {
 
         let body = RequestGetSignatures{
             jsonrpc: "2.0",
-            id: "1",    
+            id: "1",
             method: "getSignaturesForAddress",
             params: (
                 adress,

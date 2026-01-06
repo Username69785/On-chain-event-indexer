@@ -1,79 +1,29 @@
-| 2026-01-01 11:59:24.386009962 | TRACE | hyper_util::client::legacy::pool | checkout waiting for idle connection: ("https", mainnet.helius-rpc.com)
-| 2026-01-01 11:59:24.386197623 | DEBUG | reqwest::connect | starting new connection: https://mainnet.helius-rpc.com/
-| 2026-01-01 11:59:24.386260080 | TRACE | hyper_util::client::legacy::connect::http | Http::connect; scheme=Some("https"), host=Some("mainnet.helius-rpc.com"), port=None
-| 2026-01-01 11:59:24.417358548 | DEBUG | hyper_util::client::legacy::connect::http | connecting to 104.18.36.169:443
-| 2026-01-01 11:59:24.489673246 | DEBUG | hyper_util::client::legacy::connect::http | connected to 104.18.36.169:443
-| 2026-01-01 11:59:24.523878589 | TRACE | hyper_util::client::legacy::client | http1 handshake complete, spawning background dispatcher task
-| 2026-01-01 11:59:24.523978720 | TRACE | hyper_util::client::legacy::client | waiting for connection to be ready
-| 2026-01-01 11:59:24.524128935 | TRACE | hyper_util::client::legacy::client | connection is ready
-| 2026-01-01 11:59:24.524167543 | TRACE | hyper_util::client::legacy::pool | checkout dropped for ("https", mainnet.helius-rpc.com)
-| 2026-01-01 11:59:25.064560068 | TRACE | reqwest::retry | shouldn't retry!
-| 2026-01-01 11:59:25.150345777 | TRACE | hyper_util::client::legacy::pool | put; add idle connection for ("https", mainnet.helius-rpc.com)
-| 2026-01-01 11:59:25.150605586 | DEBUG | hyper_util::client::legacy::pool | pooling idle connection for ("https", mainnet.helius-rpc.com)
-| 2026-01-01 11:59:25.155004990 | INFO | on_chain_event_indexer | Полученно 1000 подписей, всего 1000
-| 2026-01-01 11:59:25.282359280 | TRACE | hyper_util::client::legacy::pool | take? ("https", mainnet.helius-rpc.com): expiration = Some(90s)
-| 2026-01-01 11:59:25.282471771 | DEBUG | hyper_util::client::legacy::pool | reuse idle connection for ("https", mainnet.helius-rpc.com)
-| 2026-01-01 11:59:25.576262583 | TRACE | reqwest::retry | shouldn't retry!
-| 2026-01-01 11:59:25.595440282 | TRACE | hyper_util::client::legacy::pool | put; add idle connection for ("https", mainnet.helius-rpc.com)
-| 2026-01-01 11:59:25.595653223 | DEBUG | hyper_util::client::legacy::pool | pooling idle connection for ("https", mainnet.helius-rpc.com)
-| 2026-01-01 11:59:25.599385583 | INFO | on_chain_event_indexer | Полученно 1000 подписей, всего 2000
-| 2026-01-01 11:59:25.725557198 | TRACE | hyper_util::client::legacy::pool | take? ("https", mainnet.helius-rpc.com): expiration = Some(90s)
-| 2026-01-01 11:59:25.725668725 | DEBUG | hyper_util::client::legacy::pool | reuse idle connection for ("https", mainnet.helius-rpc.com)
-| 2026-01-01 11:59:26.193452091 | TRACE | reqwest::retry | shouldn't retry!
-| 2026-01-01 11:59:26.196186501 | TRACE | hyper_util::client::legacy::pool | put; add idle connection for ("https", mainnet.helius-rpc.com)
-| 2026-01-01 11:59:26.196251450 | DEBUG | hyper_util::client::legacy::pool | pooling idle connection for ("https", mainnet.helius-rpc.com)
-| 2026-01-01 11:59:26.200213089 | INFO | on_chain_event_indexer | Полученно 1000 подписей, всего 3000
-| 2026-01-01 11:59:26.327374559 | TRACE | hyper_util::client::legacy::pool | take? ("https", mainnet.helius-rpc.com): expiration = Some(90s)
-| 2026-01-01 11:59:26.327534472 | DEBUG | hyper_util::client::legacy::pool | reuse idle connection for ("https", mainnet.helius-rpc.com)
-| 2026-01-01 11:59:26.600878175 | TRACE | reqwest::retry | shouldn't retry!
-| 2026-01-01 11:59:26.618213011 | TRACE | hyper_util::client::legacy::pool | put; add idle connection for ("https", mainnet.helius-rpc.com)
-| 2026-01-01 11:59:26.618413916 | DEBUG | hyper_util::client::legacy::pool | pooling idle connection for ("https", mainnet.helius-rpc.com)
-| 2026-01-01 11:59:26.622041529 | INFO | on_chain_event_indexer | Полученно 1000 подписей, всего 4000
-| 2026-01-01 11:59:26.749368233 | TRACE | hyper_util::client::legacy::pool | take? ("https", mainnet.helius-rpc.com): expiration = Some(90s)
-| 2026-01-01 11:59:26.749484206 | DEBUG | hyper_util::client::legacy::pool | reuse idle connection for ("https", mainnet.helius-rpc.com)
-| 2026-01-01 11:59:26.916754170 | TRACE | reqwest::retry | shouldn't retry!
-| 2026-01-01 11:59:26.977782785 | TRACE | hyper_util::client::legacy::pool | put; add idle connection for ("https", mainnet.helius-rpc.com)
-| 2026-01-01 11:59:26.977917769 | DEBUG | hyper_util::client::legacy::pool | pooling idle connection for ("https", mainnet.helius-rpc.com)
-| 2026-01-01 11:59:26.982191434 | INFO | on_chain_event_indexer | Полученно 1000 подписей, всего 5000
-| 2026-01-01 11:59:27.109208634 | TRACE | hyper_util::client::legacy::pool | take? ("https", mainnet.helius-rpc.com): expiration = Some(90s)
-| 2026-01-01 11:59:27.109308419 | DEBUG | hyper_util::client::legacy::pool | reuse idle connection for ("https", mainnet.helius-rpc.com)
-| 2026-01-01 11:59:27.205570976 | TRACE | reqwest::retry | shouldn't retry!
-| 2026-01-01 11:59:27.209408396 | TRACE | hyper_util::client::legacy::pool | put; add idle connection for ("https", mainnet.helius-rpc.com)
-| 2026-01-01 11:59:27.209509986 | DEBUG | hyper_util::client::legacy::pool | pooling idle connection for ("https", mainnet.helius-rpc.com)
-| 2026-01-01 11:59:27.213232118 | INFO | on_chain_event_indexer | Полученно 1000 подписей, всего 6000
-| 2026-01-01 11:59:27.339413886 | TRACE | hyper_util::client::legacy::pool | take? ("https", mainnet.helius-rpc.com): expiration = Some(90s)
-| 2026-01-01 11:59:27.339547902 | DEBUG | hyper_util::client::legacy::pool | reuse idle connection for ("https", mainnet.helius-rpc.com)
-| 2026-01-01 11:59:27.437650944 | TRACE | reqwest::retry | shouldn't retry!
-| 2026-01-01 11:59:27.441342674 | TRACE | hyper_util::client::legacy::pool | put; add idle connection for ("https", mainnet.helius-rpc.com)
-| 2026-01-01 11:59:27.441428465 | DEBUG | hyper_util::client::legacy::pool | pooling idle connection for ("https", mainnet.helius-rpc.com)
-| 2026-01-01 11:59:27.445176754 | INFO | on_chain_event_indexer | Полученно 1000 подписей, всего 7000
-| 2026-01-01 11:59:27.571476587 | TRACE | hyper_util::client::legacy::pool | take? ("https", mainnet.helius-rpc.com): expiration = Some(90s)
-| 2026-01-01 11:59:27.571636653 | DEBUG | hyper_util::client::legacy::pool | reuse idle connection for ("https", mainnet.helius-rpc.com)
-| 2026-01-01 11:59:27.686013345 | TRACE | reqwest::retry | shouldn't retry!
-| 2026-01-01 11:59:27.689892559 | TRACE | hyper_util::client::legacy::pool | put; add idle connection for ("https", mainnet.helius-rpc.com)
-| 2026-01-01 11:59:27.689992534 | DEBUG | hyper_util::client::legacy::pool | pooling idle connection for ("https", mainnet.helius-rpc.com)
-| 2026-01-01 11:59:27.693692103 | INFO | on_chain_event_indexer | Полученно 1000 подписей, всего 8000
-| 2026-01-01 11:59:27.820908744 | TRACE | hyper_util::client::legacy::pool | take? ("https", mainnet.helius-rpc.com): expiration = Some(90s)
-| 2026-01-01 11:59:27.821032054 | DEBUG | hyper_util::client::legacy::pool | reuse idle connection for ("https", mainnet.helius-rpc.com)
-| 2026-01-01 11:59:28.136051713 | TRACE | reqwest::retry | shouldn't retry!
-| 2026-01-01 11:59:28.243291795 | TRACE | hyper_util::client::legacy::pool | put; add idle connection for ("https", mainnet.helius-rpc.com)
-| 2026-01-01 11:59:28.243466380 | DEBUG | hyper_util::client::legacy::pool | pooling idle connection for ("https", mainnet.helius-rpc.com)
-| 2026-01-01 11:59:28.247676443 | INFO | on_chain_event_indexer | Полученно 1000 подписей, всего 9000
-| 2026-01-01 11:59:28.374970749 | TRACE | hyper_util::client::legacy::pool | take? ("https", mainnet.helius-rpc.com): expiration = Some(90s)
-| 2026-01-01 11:59:28.375090085 | DEBUG | hyper_util::client::legacy::pool | reuse idle connection for ("https", mainnet.helius-rpc.com)
-| 2026-01-01 11:59:28.648386833 | TRACE | reqwest::retry | shouldn't retry!
-| 2026-01-01 11:59:28.663018684 | TRACE | hyper_util::client::legacy::pool | put; add idle connection for ("https", mainnet.helius-rpc.com)
-| 2026-01-01 11:59:28.663154603 | DEBUG | hyper_util::client::legacy::pool | pooling idle connection for ("https", mainnet.helius-rpc.com)
-| 2026-01-01 11:59:28.668163630 | INFO | on_chain_event_indexer | Полученно 1000 подписей, всего 10000
-| 2026-01-01 11:59:28.795268616 | TRACE | hyper_util::client::legacy::pool | take? ("https", mainnet.helius-rpc.com): expiration = Some(90s)
-| 2026-01-01 11:59:28.795402700 | DEBUG | hyper_util::client::legacy::pool | reuse idle connection for ("https", mainnet.helius-rpc.com)
-| 2026-01-01 11:59:28.893055378 | TRACE | reqwest::retry | shouldn't retry!
-| 2026-01-01 11:59:28.947319155 | TRACE | hyper_util::client::legacy::pool | put; add idle connection for ("https", mainnet.helius-rpc.com)
-| 2026-01-01 11:59:28.947447567 | DEBUG | hyper_util::client::legacy::pool | pooling idle connection for ("https", mainnet.helius-rpc.com)
-| 2026-01-01 11:59:28.951636729 | INFO | on_chain_event_indexer | Полученно 1000 подписей, всего 11000
-| 2026-01-01 11:59:29.078893234 | TRACE | hyper_util::client::legacy::pool | take? ("https", mainnet.helius-rpc.com): expiration = Some(90s)
-| 2026-01-01 11:59:29.079019591 | DEBUG | hyper_util::client::legacy::pool | reuse idle connection for ("https", mainnet.helius-rpc.com)
-| 2026-01-01 11:59:29.364770464 | TRACE | reqwest::retry | shouldn't retry!
-| 2026-01-01 11:59:29.371559858 | TRACE | hyper_util::client::legacy::pool | put; add idle connection for ("https", mainnet.helius-rpc.com)
-| 2026-01-01 11:59:29.371647591 | DEBUG | hyper_util::client::legacy::pool | pooling idle connection for ("https", mainnet.helius-rpc.com)
-| 2026-01-01 11:59:29.375318123 | INFO | on_chain_event_indexer | Полученно 1000 подписей, всего 12000
+| 12:59:50.322839758 | INFO | on_chain_event_indexer | Полученно 23 подписей, всего 23
+| 17:16:37.253377401 | INFO | on_chain_event_indexer | Полученно 23 подписей, всего 23
+| 20:21:05.859357643 | INFO | on_chain_event_indexer | Полученно 23 подписей, всего 23
+| 20:24:24.362871365 | INFO | on_chain_event_indexer | Полученно 1000 подписей, всего 1000
+| 20:24:24.631173758 | INFO | on_chain_event_indexer | Полученно 1000 подписей, всего 2000
+| 20:24:25.129237656 | INFO | on_chain_event_indexer | Полученно 1000 подписей, всего 3000
+| 20:24:25.398458434 | INFO | on_chain_event_indexer | Полученно 1000 подписей, всего 4000
+| 20:24:25.651792782 | INFO | on_chain_event_indexer | Полученно 1000 подписей, всего 5000
+| 20:24:25.908221513 | INFO | on_chain_event_indexer | Полученно 1000 подписей, всего 6000
+| 20:24:26.439698185 | INFO | on_chain_event_indexer | Полученно 1000 подписей, всего 7000
+| 20:24:26.732922881 | INFO | on_chain_event_indexer | Полученно 1000 подписей, всего 8000
+| 20:24:27.020771042 | INFO | on_chain_event_indexer | Полученно 1000 подписей, всего 9000
+| 20:24:27.514101046 | INFO | on_chain_event_indexer | Полученно 1000 подписей, всего 10000
+| 20:24:27.791595396 | INFO | on_chain_event_indexer | Полученно 1000 подписей, всего 11000
+| 20:24:28.295147983 | INFO | on_chain_event_indexer | Полученно 1000 подписей, всего 12000
+| 20:24:28.583460969 | INFO | on_chain_event_indexer | Полученно 1000 подписей, всего 13000
+| 20:24:28.852264438 | INFO | on_chain_event_indexer | Полученно 1000 подписей, всего 14000
+| 20:24:29.130472616 | INFO | on_chain_event_indexer | Полученно 1000 подписей, всего 15000
+| 20:24:29.384709300 | INFO | on_chain_event_indexer | Полученно 1000 подписей, всего 16000
+| 20:24:29.652381441 | INFO | on_chain_event_indexer | Полученно 824 подписей, всего 16824
+| 20:34:39.132210810 | INFO | on_chain_event_indexer | Полученно 1000 подписей, всего 1000
+| 20:38:41.108632794 | INFO | on_chain_event_indexer | Полученно 1000 подписей, всего 1000
+| 20:38:41.120888673 | INFO | on_chain_event_indexer | Сохраненно в базу данных
+| 20:38:41.394800326 | INFO | on_chain_event_indexer | Полученно 1000 подписей, всего 2000
+| 20:38:41.402079002 | INFO | on_chain_event_indexer | Сохраненно в базу данных
+| 20:38:41.667307146 | INFO | on_chain_event_indexer | Полученно 1000 подписей, всего 3000
+| 20:38:41.675151086 | INFO | on_chain_event_indexer | Сохраненно в базу данных
+| 20:38:42.333117412 | INFO | on_chain_event_indexer | Полученно 1000 подписей, всего 4000
+| 20:38:42.340807682 | INFO | on_chain_event_indexer | Сохраненно в базу данных
