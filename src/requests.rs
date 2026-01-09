@@ -1,6 +1,8 @@
 use anyhow::{Ok, Result};
 use serde::{Deserialize, Serialize};
-use reqwest::Client;
+use reqwest::{Client, Response};
+use futures::future::try_join_all;
+use tokio::time::{Duration, sleep};
 
 pub struct HeliusApi {
     api: String,
@@ -9,7 +11,7 @@ pub struct HeliusApi {
 }
 
 #[derive(Serialize, Debug)]
-struct RequestGetSignatures<'a> {
+struct Request<'a> {
     jsonrpc: &'a str,
     id: &'a str,
     method: &'a str,
@@ -20,6 +22,9 @@ struct RequestGetSignatures<'a> {
 struct Params<'a> {
     #[serde(skip_serializing_if = "Option::is_none")]
     before: Option<&'a str>,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    encoding: Option<&'a str>,
 }
 
 #[derive(Deserialize, Serialize, Debug, sqlx::Type)]
@@ -59,6 +64,10 @@ pub struct RpcResponse {
     pub result: Vec<Signature>,
 }
 
+pub struct Transaction {
+
+}
+
 impl HeliusApi {
     pub fn new() -> Self {
         let api = dotenvy::var("api").expect("api не найден в .env");
@@ -73,9 +82,9 @@ impl HeliusApi {
         adress: &str,
         last_signature: Option<String>,
     ) -> Result<(RpcResponse, String)> {
-        let params = Params { before: last_signature.as_deref() };
+        let params = Params { before: last_signature.as_deref() , encoding: None};
 
-        let body = RequestGetSignatures{
+        let body = Request {
             jsonrpc: "2.0",
             id: "1",
             method: "getSignaturesForAddress",
@@ -94,5 +103,36 @@ impl HeliusApi {
         let last_signatures = dsrlz_response.result.last().unwrap().signature.clone();
 
         Ok((dsrlz_response, last_signatures))
+    }
+
+    pub async fn get_transaction(&self, signatures: Vec<String>) -> Result<Vec<Response>> {
+        let responses = try_join_all(signatures
+            .chunks(100)
+            .map(async |signatures| {
+            let mut batch: Vec<Request> = Vec::with_capacity(100);
+
+            for signature in signatures {
+                let params = Params { before: None , encoding: Some("json")};
+                let body = Request {
+                    jsonrpc: "2.0",
+                    id: "1",
+                    method: "getTransaction",
+                    params: (signature, params)
+                };
+
+                batch.push(body);
+            }
+
+            let response: Response = self.client.post(format!("{}{}", self.url, self.api))
+            .json(&batch)
+            .send()
+            .await?;
+
+            sleep(Duration::from_millis(125)).await;
+
+            Ok(response)
+        })).await?;
+
+        Ok(responses)
     }
 }

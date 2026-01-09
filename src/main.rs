@@ -1,4 +1,5 @@
 use anyhow::Result;
+use solana_sdk::signature;
 use tokio::time::{sleep, Duration};
 use chrono::Local;
 use log::{debug, error, info, trace, warn};
@@ -19,7 +20,7 @@ async fn main() -> Result<()> {
     let mut sum: usize = 0;
     let adress = "9iaBEkWBCeM1xUmgWWR3oARNbxnf2N7ceNTRBwgo4su3";
 
-    loop {
+    loop { // Сбор всех подписей
         let (responce, last_signature) = helius_api
         .get_signatures(adress, cur_last_signature).await?;
 
@@ -28,7 +29,8 @@ async fn main() -> Result<()> {
 
         info!("Полученно {res_len} подписей, всего {sum}");
 
-        database.write_signatures(&responce, adress).await.inspect(|_| info!("Сохраненно в базу данных"))?;
+        database.write_signatures(&responce, adress).await
+        .inspect(|_| info!("Сохраненно в базу данных"))?;
 
         if res_len < 1000 {
             break;
