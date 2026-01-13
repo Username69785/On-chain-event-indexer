@@ -27,3 +27,5 @@
 | 20:38:41.675151086 | INFO | on_chain_event_indexer | Сохраненно в базу данных
 | 20:38:42.333117412 | INFO | on_chain_event_indexer | Полученно 1000 подписей, всего 4000
 | 20:38:42.340807682 | INFO | on_chain_event_indexer | Сохраненно в базу данных
+| 11:54:23.360661561 | INFO | on_chain_event_indexer | Полученно 23 подписей, всего 23
+| 11:54:23.373983032 | INFO | on_chain_event_indexer | Сохраненно в базу данных

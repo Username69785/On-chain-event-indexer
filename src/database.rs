@@ -3,7 +3,7 @@ use log::Record;
 use sqlx::postgres::{PgPool, PgPoolOptions};
 use sqlx::{QueryBuilder, query};
 
-use super::RpcResponse;
+use super::{RpcResponse, TransactionInfo};
 
 pub struct Database {
     pool: PgPool,
@@ -58,6 +58,22 @@ impl Database {
 
         query.execute(&self.pool).await?;
 
+        Ok(())
+    }
+
+    pub async fn write_transaction_info(&self, transaction_info: Vec<TransactionInfo>, adress: &str) -> Result<()> {
+        let mut query_builder: QueryBuilder<sqlx::Postgres> = QueryBuilder::new(
+            "INSERT INTO signatures 
+            (owner_address, signature, slot, block_time, confirmation_status, err)",
+        );
+/*     
+    TODO:
+    1. оформить таблицу
+        понять какие поля буду
+        определить типы
+        создать
+    2. дописать эту функцию
+*/
         Ok(())
     }
 }

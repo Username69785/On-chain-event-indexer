@@ -1,0 +1,7 @@
+{
+  "error": {
+    "code": -32403,
+    "message": "Batch requests are only available for paid plans. Please upgrade if you would like to gain access"
+  },
+  "jsonrpc": "2.0"
+}

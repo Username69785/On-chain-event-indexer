@@ -21,9 +21,19 @@ dotenvy = "0.15.7"
 chrono = { version = "0.4.42", features = ["serde"] }
 backon = { version = "1.6.0", features = ["tokio"] }
 governor = "0.10.4"
-sqlx = { version = "0.8.6", features = ["runtime-tokio-rustls", "postgres", "uuid", "chrono", "macros"] }
+sqlx = { version = "0.8.6", features = [
+    "runtime-tokio-rustls",
+    "postgres",
+    "uuid",
+    "chrono",
+    "macros",
+] }
 uuid = { version = "1.19.0", features = ["serde", "v4"] }
-colored = { version = "3.0.0"}
-log ={ version = "0.4.29"}
-fern ={ version = "0.7.1"}
+colored = { version = "3.0.0" }
+log = { version = "0.4.29" }
+fern = { version = "0.7.1" }
 futures = "0.3.31"
+
+[[bin]]
+name = "test"
+path = "src/test.rs"

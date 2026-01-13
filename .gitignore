@@ -1,2 +1,5 @@
 /.env
 /target
+src/test.rs
+response.json
+.gitignore
