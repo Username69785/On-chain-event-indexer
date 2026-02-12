@@ -1,0 +1,66 @@
+  GNU nano 6.2                                                                                   /root/.openclaw/workspace/NEXT.md                                                                                             
+# NEXT.md — Solana Address Report MVP (14 дней)
+
+Цель: каждый день закрывать **минимум 1 next-action** (45 мин). Если пошло — добиваешь до 70–90 мин.
+
+## Правило старта (5 минут)
+1) Открыл репо
+2) Открыл этот файл
+3) Взял **самую маленькую** задачу
+4) Таймер 10 минут «просто начать» → потом докатываешь до 45 минут
+
+---
+
+## СЕГОДНЯ (Day 1) — “скелет веба + очередь джобов”
+**Выбери 1–2 пункта.**
+
+- [ ] (30–45м) Создать миграцию/DDL для `report_jobs` в Postgres:
+  - поля: id, address, day (date), status, error, created_at, updated_at
+  - UNIQUE(address, day)
+- [ ] (15–30м) Определить статусы: `pending | indexing | ready | error`
+- [ ] (30–60м) Поднять Python FastAPI skeleton:
+  - структура `app/` + `main.py`
+  - подключение к Postgres (sync/async — на твой выбор, главное чтобы работало)
+- [ ] (30–45м) Сделать страницу `/` (форма): address + date + кнопка Generate
+- [ ] (30–45м) Реализовать `POST /generate`:
+  - upsert job (если уже есть — вернуть существующий)
+  - редирект на `/report/{address}/{day}`
+- [ ] (15-30м) Подключить Git и загрузить проект.
+- [х] (10-15м) Разбить requests на разные файлы 
+- [х] (10-15м) Проверить иишный код
+- [ ] (10-15м) Изменить таблицу transfers: удалить страные поля и добавить новые
+- [ ] (5-10м) Убрать структуры для отправки запросов, реализовать через макрос
+
+**Мини-победа дня:** job создаётся в БД из веба.
+
+---
+
+## ЗАВТРА (Day 2) — “Rust берёт job из БД и работает по адресу/дате”
+- [ ] (45–90м) В Rust: функция “взять 1 pending job” через `FOR UPDATE SKIP LOCKED` + выставить `indexing`
+- [ ] (30–60м) Убрать хардкод адреса: адрес и day берутся из job
+- [ ] (30–60м) После успеха: `status=ready`; при ошибке: `status=error, error=...`
+
+---
+
+## Day 3 — “вертикальный срез end-to-end”
+- [ ] (30–45м) В Python `/report/{address}/{day}` показывает статус job (pending/indexing/ready/error)
+- [ ] (45–90м) Сделать простую авто-проверку статуса (кнопка refresh или meta-refresh раз в 5–10 сек)
+- [ ] (45–90м) Smoke test: создать job → дождаться ready
+
+---
+
+## Backlog (после вертикального среза)
+### Метрики/агрегации (v1)
+- [ ] tx_total, success_count, failed_count, success_rate
+- [ ] tx/hour bar chart (0–23)
+- [ ] total fees (SOL)
+- [ ] total SOL moved (sum всех transfer)
+- [ ] total SPL moved (sum всех transfer)
+
+### UX / кэш
+- [ ] Если `(address, day)` уже ready — не запускать индексацию заново
+- [ ] Страница “recent reports” (опционально)
+
+### Деплой
+- [ ] docker-compose (postgres + rust + python)
+- [ ] VPS deploy + README
