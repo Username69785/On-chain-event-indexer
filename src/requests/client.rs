@@ -5,6 +5,7 @@ use futures::{self, StreamExt, stream};
 use reqwest::{Client, Response};
 use serde::Serialize;
 
+use serde_json::json;
 use tokio::time::{Duration, sleep};
 use tracing::{debug, info, instrument, warn};
 
@@ -16,27 +17,6 @@ pub struct HeliusApi {
     api: String,
     url: String,
     client: Client,
-}
-
-#[derive(Serialize, Debug)]
-pub struct Request<'a> {
-    pub jsonrpc: &'a str,
-    pub id: &'a str,
-    pub method: &'a str,
-    pub params: (&'a str, Params<'a>),
-}
-
-#[derive(Serialize, Debug, Clone)]
-#[serde(rename_all = "camelCase")]
-pub struct Params<'a> {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub before: Option<&'a str>,
-
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub encoding: Option<&'a str>,
-
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub max_supported_transaction_version: Option<u8>,
 }
 
 impl HeliusApi {
@@ -54,20 +34,18 @@ impl HeliusApi {
         adress: &str,
         last_signature: Option<String>,
     ) -> Result<(RpcResponse, String)> {
-        let params = Params {
-            before: last_signature.as_deref(),
-            encoding: None,
-            max_supported_transaction_version: Some(0),
-        };
-
-        let body = Request {
-            jsonrpc: "2.0",
-            id: "1",
-            method: "getSignaturesForAddress",
-            params: (
-                adress, params, // before: Option<String>
-            ),
-        };
+        let body = json!({
+            "jsonrpc": "2.0",
+            "id": "1",
+            "method": "getSignaturesForAddress",
+            "params": [
+                adress,
+                {
+                    "before": last_signature.as_deref(),
+                    "max_supported_transaction_version": 0,
+                }
+            ]
+        });
 
         let request_started = Instant::now();
         let response = self
@@ -100,12 +78,6 @@ impl HeliusApi {
 
     #[instrument(skip(self, signatures), fields(total = signatures.len()))]
     pub async fn get_transaction(&self, signatures: Vec<String>) -> Result<Vec<TransactionResult>> {
-        let params = Params {
-            before: None,
-            encoding: Some("jsonParsed"),
-            max_supported_transaction_version: Some(0),
-        };
-
         let mut responses_res: Vec<TransactionResult> = Vec::new();
 
         for (chunk_index, signatures) in signatures.chunks(10).enumerate() {
@@ -117,12 +89,18 @@ impl HeliusApi {
 
             let response = stream::iter(signatures)
                 .map(async |signature| {
-                    let body = Request {
-                        jsonrpc: "2.0",
-                        id: "1",
-                        method: "getTransaction",
-                        params: (&signature, params.clone()),
-                    };
+                    let body = json!({
+                        "jsonrpc": "2.0",
+                        "id": "1",
+                        "method": "getTransaction",
+                        "params": [
+                            signature,
+                            {
+                                "max_supported_transaction_version": 0,
+                                "encoding": "jsonParsed",
+                            }
+                        ]
+                    });
 
                     let request_started = Instant::now();
                     let response: Response = self

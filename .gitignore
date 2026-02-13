@@ -1,4 +1,4 @@
-/.env
+.env
 /target
 src/test.rs
 response.json
