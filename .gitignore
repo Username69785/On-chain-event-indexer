@@ -3,3 +3,4 @@
 src/test.rs
 response.json
 .gitignore
+info/output.log

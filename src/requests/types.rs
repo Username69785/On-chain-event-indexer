@@ -1,4 +1,4 @@
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize, de::Deserializer};
 use serde_json::Value;
 use std::collections::HashMap;
 use tracing::warn;
@@ -115,7 +115,7 @@ pub struct AccountKeys {
 #[serde(rename_all = "camelCase")]
 pub struct Instruction {
     /// Распарсенная инструкция (если программа известна)
-    #[serde(default)]
+    #[serde(default, deserialize_with = "deserialize_parsed_instruction_opt")]
     pub parsed: Option<ParsedInstruction>,
     #[serde(default)]
     pub program: Option<String>,
@@ -143,6 +143,20 @@ pub struct ParsedInstruction {
     pub info: ParsedInfo,
     #[serde(rename = "type")]
     pub instruction_type: String,
+}
+
+fn deserialize_parsed_instruction_opt<'de, D>(
+    deserializer: D,
+) -> Result<Option<ParsedInstruction>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let value = Option::<Value>::deserialize(deserializer)?;
+    let parsed = match value {
+        Some(raw @ Value::Object(_)) => serde_json::from_value::<ParsedInstruction>(raw).ok(),
+        _ => None,
+    };
+    Ok(parsed)
 }
 
 /// Поля parsed.info, которые нужны для transfer/mint/burn

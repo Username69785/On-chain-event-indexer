@@ -52,7 +52,7 @@ async fn main() -> Result<()> {
         debug!(inserted, "Signatures saved");
 
         // решить что как правильно поступать с проверкой
-        if res_len < 1000 {
+        if res_len < 1000 || sum >= 2000 {
             info!("No more signatures available");
             break;
         }
@@ -70,7 +70,7 @@ async fn main() -> Result<()> {
 
     loop {
         let signatures = database
-            .get_and_mark_unprocessed_signatures(address, 100)
+            .get_unprocessed_signatures(address, 100)
             .await?;
         info!(count = signatures.len(), "Fetched unprocessed signatures");
 
@@ -80,7 +80,7 @@ async fn main() -> Result<()> {
         }
 
         let tx_fetch_started = Instant::now();
-        let transaction_info = helius_api.get_transaction(signatures).await?;
+        let transaction_info = helius_api.get_transaction(signatures.clone()).await?;
         info!(
             count = transaction_info.len(),
             elapsed_ms = tx_fetch_started.elapsed().as_millis(),
@@ -91,10 +91,14 @@ async fn main() -> Result<()> {
         let save_stats = database
             .save_transaction_data(&transaction_info, address)
             .await?;
+        let marked_processed = database
+            .mark_signatures_processed(address, &signatures)
+            .await?;
 
         info!(
             transactions_saved = save_stats.transactions,
             token_transfers_saved = save_stats.token_transfers,
+            signatures_marked_processed = marked_processed,
             elapsed_ms = save_started.elapsed().as_millis(),
             "Transaction data saved"
         );
