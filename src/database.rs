@@ -34,44 +34,70 @@ impl Database {
         Ok(Database { pool })
     }
 
-    /// Получает пачку подписей, которые еще не были обработаны (is_processed = false),
-    /// и сразу помечает их как обработанные (is_processed = true).
-    /// Использует атомарное обновление (UPDATE ... RETURNING) для корректной работы в многопоточной среде.
+    /// Получает пачку подписей, которые еще не были обработаны (is_processed = false).
+    /// Отметка как обработанных выполняется отдельным шагом после успешной обработки.
     #[instrument(skip(self), fields(address = %mask_addr(address), limit))]
-    pub async fn get_and_mark_unprocessed_signatures(
+    pub async fn get_unprocessed_signatures(
         &self,
         address: &str,
         limit: i64,
     ) -> Result<Vec<String>> {
         let started = Instant::now();
-        let signatures = sqlx::query!(
+        let signatures = sqlx::query_scalar::<_, String>(
             r#"
-            WITH selected_signatures AS (
-                SELECT signature
-                FROM signatures
-                WHERE owner_address = $1 AND is_processed = FALSE
-                LIMIT $2
-                FOR UPDATE SKIP LOCKED
-            )
-            UPDATE signatures
-            SET is_processed = TRUE
-            FROM selected_signatures
-            WHERE signatures.signature = selected_signatures.signature
-            RETURNING signatures.signature
-            "#,
-            address, // $1
-            limit    // $2
+            SELECT signature
+            FROM signatures
+            WHERE owner_address = $1 AND is_processed = FALSE
+            ORDER BY block_time DESC
+            LIMIT $2
+            "#
         )
+        .bind(address)
+        .bind(limit)
         .fetch_all(&self.pool)
         .await?;
 
-        let result: Vec<String> = signatures.into_iter().map(|rec| rec.signature).collect();
+        let result: Vec<String> = signatures;
         debug!(
             count = result.len(),
             elapsed_ms = started.elapsed().as_millis(),
-            "Fetched and marked unprocessed signatures"
+            "Fetched unprocessed signatures"
         );
         Ok(result)
+    }
+
+    #[instrument(skip(self, signatures), fields(address = %mask_addr(address), input_count = signatures.len()))]
+    pub async fn mark_signatures_processed(
+        &self,
+        address: &str,
+        signatures: &[String],
+    ) -> Result<u64> {
+        if signatures.is_empty() {
+            return Ok(0);
+        }
+
+        let started = Instant::now();
+        let result = sqlx::query(
+            r#"
+            UPDATE signatures
+            SET is_processed = TRUE
+            WHERE owner_address = $1
+              AND signature = ANY($2)
+              AND is_processed = FALSE
+            "#,
+        )
+        .bind(address)
+        .bind(signatures)
+        .execute(&self.pool)
+        .await?;
+
+        let updated = result.rows_affected();
+        debug!(
+            updated,
+            elapsed_ms = started.elapsed().as_millis(),
+            "Signatures marked as processed"
+        );
+        Ok(updated)
     }
 
     #[instrument(skip(self, signatures), fields(address = %mask_addr(adress), input_count = signatures.result.len()))]

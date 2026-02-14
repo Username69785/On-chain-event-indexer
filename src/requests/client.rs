@@ -96,7 +96,7 @@ impl HeliusApi {
                         "params": [
                             signature,
                             {
-                                "max_supported_transaction_version": 0,
+                                "maxSupportedTransactionVersion": 0,
                                 "encoding": "jsonParsed",
                             }
                         ]
