@@ -3,19 +3,6 @@ use serde_json::Value;
 use std::collections::HashMap;
 use tracing::warn;
 
-#[derive(Serialize, Debug, Clone)]
-#[serde(rename_all = "camelCase")]
-pub struct Params<'a> {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub before: Option<&'a str>,
-
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub encoding: Option<&'a str>,
-
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub max_supported_transaction_version: Option<u8>,
-}
-
 #[derive(Deserialize, Debug)]
 pub struct Signature {
     #[serde(rename = "blockTime")]
@@ -30,6 +17,24 @@ pub struct RpcResponse {
 }
 
 #[derive(Deserialize, Debug)]
+pub struct RpcEnvelope<T> {
+    #[serde(default)]
+    pub result: Option<T>,
+
+    #[serde(default)]
+    pub error: Option<RpcError>,
+}
+
+#[derive(Deserialize, Debug, Clone)]
+pub struct RpcError {
+    pub code: i64,
+    pub message: String,
+
+    #[serde(default)]
+    pub data: Option<Value>,
+}
+
+#[derive(Deserialize, Debug)]
 pub struct TransactionResult {
     pub result: TransactionInfo,
 
@@ -39,6 +44,22 @@ pub struct TransactionResult {
     /// Изменения балансов SPL токенов (рассчитывается после десериализации)
     #[serde(skip)]
     pub token_transfer_changes: Vec<TokenTransferChange>,
+}
+
+#[derive(Debug, Clone)]
+pub struct TransactionFetchError {
+    pub signature: String,
+    pub status_code: Option<u16>,
+    pub rpc_code: Option<i64>,
+    pub message: String,
+}
+
+#[derive(Debug)]
+pub struct TransactionBatch {
+    pub transactions: Vec<TransactionResult>,
+    pub processed_signatures: Vec<String>,
+    pub failed_signatures: Vec<String>,
+    pub errors: Vec<TransactionFetchError>,
 }
 
 #[derive(Deserialize, Debug)]
