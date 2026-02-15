@@ -136,6 +136,11 @@ impl Database {
         transaction_info: &Vec<TransactionResult>,
         tracked_owner: &str,
     ) -> Result<u64> {
+        if transaction_info.is_empty() {
+            debug!("No transactions to insert");
+            return Ok(0);
+        }
+
         let started = Instant::now();
         let mut query_builder: QueryBuilder<sqlx::Postgres> = QueryBuilder::new(
             "INSERT INTO transactions
@@ -258,6 +263,14 @@ impl Database {
         transaction_info: &Vec<TransactionResult>,
         address: &str,
     ) -> Result<SaveStats> {
+        if transaction_info.is_empty() {
+            debug!("No transaction payload to save");
+            return Ok(SaveStats {
+                transactions: 0,
+                token_transfers: 0,
+            });
+        }
+
         let started = Instant::now();
         let transactions = self
             .write_transaction_info(transaction_info, address)

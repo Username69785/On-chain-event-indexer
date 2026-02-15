@@ -1,7 +1,7 @@
 use anyhow::Result;
 use std::time::Instant;
 use tokio::time::{Duration, sleep};
-use tracing::{debug, info};
+use tracing::{debug, info, warn};
 
 mod requests;
 use requests::*;
@@ -51,7 +51,7 @@ async fn main() -> Result<()> {
         let inserted = database.write_signatures(&response, address).await?;
         debug!(inserted, "Signatures saved");
 
-        // решить что как правильно поступать с проверкой
+        // решить что как правильно поступать с проверкой; для тестов, не больше 2000
         if res_len < 1000 || sum >= 2000 {
             info!("No more signatures available");
             break;
@@ -80,19 +80,27 @@ async fn main() -> Result<()> {
         }
 
         let tx_fetch_started = Instant::now();
-        let transaction_info = helius_api.get_transaction(signatures.clone()).await?;
+        let transaction_batch = helius_api.get_transaction(signatures).await?;
         info!(
-            count = transaction_info.len(),
+            count = transaction_batch.transactions.len(),
+            failed = transaction_batch.failed_signatures.len(),
             elapsed_ms = tx_fetch_started.elapsed().as_millis(),
             "Transactions fetched"
         );
 
+        if !transaction_batch.errors.is_empty() {
+            warn!(
+                errors = transaction_batch.errors.len(),
+                "Some transaction requests failed in this batch"
+            );
+        }
+
         let save_started = Instant::now();
         let save_stats = database
-            .save_transaction_data(&transaction_info, address)
+            .save_transaction_data(&transaction_batch.transactions, address)
             .await?;
         let marked_processed = database
-            .mark_signatures_processed(address, &signatures)
+            .mark_signatures_processed(address, &transaction_batch.processed_signatures)
             .await?;
 
         info!(
