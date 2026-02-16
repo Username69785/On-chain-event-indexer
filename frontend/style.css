@@ -3,8 +3,8 @@
     --card-bg: rgba(255, 255, 255, 0.03);
     --text-primary: #ffffff;
     --text-secondary: #a0a0b0;
-    --accent-primary: #9945FF; /* Solana Purple */
-    --accent-secondary: #14F195; /* Solana Green */
+    --accent-primary: #14F195; /* Solana Green */
+    --accent-secondary: #9945FF; /* Solana Purple */
     --input-bg: rgba(255, 255, 255, 0.05);
     --border-color: rgba(255, 255, 255, 0.1);
     --font-family: 'Inter', sans-serif;
@@ -33,7 +33,7 @@ body {
     position: absolute;
     width: 600px;
     height: 600px;
-    background: radial-gradient(circle, rgba(153, 69, 255, 0.15) 0%, rgba(20, 241, 149, 0.05) 50%, transparent 70%);
+    background: radial-gradient(circle, rgba(20, 241, 149, 0.15) 0%, rgba(153, 69, 255, 0.05) 50%, transparent 70%);
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
@@ -120,20 +120,20 @@ input::placeholder {
 
 input:focus {
     background: rgba(255, 255, 255, 0.08);
-    border-color: rgba(153, 69, 255, 0.5);
-    box-shadow: 0 0 0 4px rgba(153, 69, 255, 0.1);
+    border-color: rgba(20, 241, 149, 0.5);
+    box-shadow: 0 0 0 4px rgba(20, 241, 149, 0.1);
 }
 
 /* Button */
 button {
     width: 100%;
     padding: 16px;
-    background: linear-gradient(135deg, var(--accent-primary), #7e22ce);
+    background: linear-gradient(135deg, var(--accent-primary), #0fa37f);
     border: none;
     border-radius: 12px;
-    color: white;
+    color: #000;
     font-size: 1rem;
-    font-weight: 600;
+    font-weight: 700;
     cursor: pointer;
     display: flex;
     justify-content: center;
@@ -151,14 +151,14 @@ button::before {
     left: 0;
     width: 100%;
     height: 100%;
-    background: linear-gradient(135deg, rgba(255,255,255,0.1), transparent);
+    background: linear-gradient(135deg, rgba(255,255,255,0.2), transparent);
     opacity: 0;
     transition: opacity 0.3s ease;
 }
 
 button:hover {
     transform: translateY(-2px);
-    box-shadow: 0 10px 20px rgba(153, 69, 255, 0.3);
+    box-shadow: 0 10px 20px rgba(20, 241, 149, 0.3);
 }
 
 button:hover::before {
