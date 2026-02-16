@@ -25,11 +25,23 @@ document.addEventListener('DOMContentLoaded', () => {
         setLoading(true);
 
         try {
-            // TODO: Replace with actual API call to Rust backend
-            console.log('Submitting address:', address);
+            // Send address to backend
+            const response = await fetch('http://127.0.0.1:8080/analyze', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ address }),
+            });
 
-            // Artificial delay to simulate processing
-            await new Promise(resolve => setTimeout(resolve, 1500));
+            if (!response.ok) {
+                // Handle non-200 responses
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(errorData.message || 'Failed to start indexing');
+            }
+
+            const result = await response.json();
+            console.log('Server response:', result);
 
             showStatus(`Successfully started indexing for: ${address.slice(0, 4)}...${address.slice(-4)}`, 'success');
             input.value = '';
