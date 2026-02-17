@@ -34,6 +34,8 @@ bigdecimal = "0.4"
 uuid = { version = "1.19.0", features = ["serde", "v4"] }
 colored = { version = "3.0.0" }
 futures = "0.3.31"
+axum = "0.8" 
+tower-http = { version = "0.6.8", features = ["cors"] }
 
 [[bin]]
 name = "test"

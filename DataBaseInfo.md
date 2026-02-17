@@ -59,3 +59,16 @@
 | 2 | `owner_address` | `text` | [v] | |
 | 7 | `signature` | `text` | [v] | |
 | 8 | `is_processed` | `bool` | [ ] | `false` |
+
+### 2. Таблица `processing_data`
+
+*   **Tablespace:** `pg_default`
+
+| # | Имя колонки | Тип данных | Not Null | Значение по умолчанию |
+| :--- | :--- | :--- | :---: | :--- |
+| 1 | `id` | `bigserial` | [v] | `nextval('processing_data_id_seq'::regclass)` |
+| 2 | `address` | `text` | [v] | |
+| 3 | `day` | `date` | [v] | |
+| 4 | `status` | `text` | [v] | |
+| 5 | `created_at` | `timestamptz` | [v] | `now()` |
+| 6 | `updated_at` | `timestamptz` | [v] | `now()` |

@@ -9,6 +9,9 @@ use requests::*;
 mod database;
 use database::*;
 
+mod api;
+use api::*;
+
 mod logging;
 mod telemetry;
 
@@ -69,9 +72,7 @@ async fn main() -> Result<()> {
     );
 
     loop {
-        let signatures = database
-            .get_unprocessed_signatures(address, 100)
-            .await?;
+        let signatures = database.get_unprocessed_signatures(address, 100).await?;
         info!(count = signatures.len(), "Fetched unprocessed signatures");
 
         if signatures.len() == 0 {

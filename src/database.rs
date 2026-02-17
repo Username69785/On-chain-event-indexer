@@ -1,15 +1,15 @@
 use anyhow::Result;
 use bigdecimal::{BigDecimal, FromPrimitive};
-use std::time::Instant;
-use sqlx::postgres::{PgPool, PgPoolOptions};
 use sqlx::QueryBuilder;
+use sqlx::postgres::{PgPool, PgPoolOptions};
+use std::time::Instant;
 use tracing::{debug, info, instrument};
 
 use super::{RpcResponse, TokenTransferChange, TransactionInfo, TransactionResult};
 use crate::logging::mask_addr;
 
 pub struct Database {
-    pool: PgPool,
+    pub pool: PgPool,
 }
 
 pub struct SaveStats {
@@ -50,7 +50,7 @@ impl Database {
             WHERE owner_address = $1 AND is_processed = FALSE
             ORDER BY block_time DESC
             LIMIT $2
-            "#
+            "#,
         )
         .bind(address)
         .bind(limit)
@@ -228,11 +228,7 @@ impl Database {
                 .push_bind(&transfer.token_mint)
                 .push_bind(&transfer.token_program)
                 .push_bind(BigDecimal::from(transfer.amount_raw))
-                .push_bind(
-                    transfer
-                        .amount_ui
-                        .and_then(BigDecimal::from_f64),
-                )
+                .push_bind(transfer.amount_ui.and_then(BigDecimal::from_f64))
                 .push_bind(transfer.decimals.map(i32::from))
                 .push_bind(&transfer.asset_type)
                 .push_bind(&transfer.transfer_type)
