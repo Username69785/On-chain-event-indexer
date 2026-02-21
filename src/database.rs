@@ -1,7 +1,7 @@
 use anyhow::Result;
 use bigdecimal::{BigDecimal, FromPrimitive};
-use sqlx::QueryBuilder;
 use sqlx::postgres::{PgPool, PgPoolOptions};
+use sqlx::{FromRow, QueryBuilder};
 use std::time::Instant;
 use tracing::{debug, info, instrument};
 
@@ -15,6 +15,12 @@ pub struct Database {
 pub struct SaveStats {
     pub transactions: u64,
     pub token_transfers: u64,
+}
+
+#[derive(Debug, FromRow)]
+pub struct ClaimedJob {
+    pub job_id: i64,
+    pub address: String,
 }
 
 impl Database {
@@ -287,84 +293,64 @@ impl Database {
         })
     }
 
-    /// Атомарно берёт один адрес со статусом `pending` из таблицы `processing_data`,
-    /// переводит его в статус `indexing` и возвращает адрес.
+    /// Атомарно берёт одну задачу со статусом `pending` из `processing_data`,
+    /// переводит её в `indexing`, присваивает `worker_id` и возвращает `job_id + address`.
     /// Если подходящих строк нет — возвращает `None`.
-    #[instrument(skip(self))]
-    pub async fn take_pending_address(&self) -> Result<Option<String>> {
+    #[instrument(skip(self), fields(worker_id))]
+    pub async fn claim_pending_job(&self, worker_id: u32) -> Result<Option<ClaimedJob>> {
         let started = Instant::now();
+        let worker_id = i32::try_from(worker_id).unwrap_or(i32::MAX);
 
-        let address = sqlx::query_scalar::<_, String>(
+        let claimed_job = sqlx::query_as::<_, ClaimedJob>(
             r#"
-            UPDATE processing_data
-            SET status     = 'indexing',
-                updated_at = now()
-            WHERE id = (
+            WITH next_job AS (
                 SELECT id
-                FROM processing_data
+                FROM processing_data pd
                 WHERE status = 'pending'
                 ORDER BY created_at ASC
                 LIMIT 1
                 FOR UPDATE SKIP LOCKED
             )
-            RETURNING address
+            UPDATE processing_data pd
+            SET status     = 'indexing',
+                worker_id  = $1,
+                updated_at = now()
+            FROM next_job
+            WHERE pd.id = next_job.id
+            RETURNING pd.id AS job_id, pd.address
             "#,
         )
+        .bind(worker_id)
         .fetch_optional(&self.pool)
         .await?;
 
         debug!(
-            address = address.as_deref().unwrap_or("none"),
+            job_id = claimed_job.as_ref().map(|job| job.job_id),
             elapsed_ms = started.elapsed().as_millis(),
-            "take_pending_address"
+            "claim_pending_job"
         );
 
-        Ok(address)
+        Ok(claimed_job)
     }
 
-    #[instrument(skip(self), fields(address = %mask_addr(address), worker_id))]
-    pub async fn bind_worker_to_address(&self, worker_id: u32, address: &str) -> Result<u64> {
-        let started = Instant::now();
-        let worker_id = i32::try_from(worker_id).unwrap_or(i32::MAX);
-
-        let result = sqlx::query(
-            r#"
-            UPDATE processing_data
-            SET worker_id  = $1,
-                updated_at = now()
-            WHERE address = $2
-              AND status = 'indexing'
-            "#,
-        )
-        .bind(worker_id)
-        .bind(address)
-        .execute(&self.pool)
-        .await?;
-
-        let updated = result.rows_affected();
-        debug!(
-            updated,
-            elapsed_ms = started.elapsed().as_millis(),
-            "Worker bound to address"
-        );
-
-        Ok(updated)
-    }
-
-    #[instrument(skip(self), fields(address = %mask_addr(address), status))]
-    pub async fn update_processing_status(&self, address: &str, status: &str) -> Result<u64> {
+    #[instrument(skip(self), fields(job_id, status))]
+    pub async fn update_processing_status_by_job_id(
+        &self,
+        job_id: i64,
+        status: &str,
+    ) -> Result<u64> {
         let started = Instant::now();
         let result = sqlx::query(
             r#"
             UPDATE processing_data
             SET status     = $1,
                 updated_at = now()
-            WHERE address = $2
+            WHERE id = $2
               AND status = 'indexing'
             "#,
         )
         .bind(status)
-        .bind(address)
+        .bind(job_id)
         .execute(&self.pool)
         .await?;
 
