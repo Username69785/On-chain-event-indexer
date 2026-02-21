@@ -286,4 +286,95 @@ impl Database {
             token_transfers,
         })
     }
+
+    /// Атомарно берёт один адрес со статусом `pending` из таблицы `processing_data`,
+    /// переводит его в статус `indexing` и возвращает адрес.
+    /// Если подходящих строк нет — возвращает `None`.
+    #[instrument(skip(self))]
+    pub async fn take_pending_address(&self) -> Result<Option<String>> {
+        let started = Instant::now();
+
+        let address = sqlx::query_scalar::<_, String>(
+            r#"
+            UPDATE processing_data
+            SET status     = 'indexing',
+                updated_at = now()
+            WHERE id = (
+                SELECT id
+                FROM processing_data
+                WHERE status = 'pending'
+                ORDER BY created_at ASC
+                LIMIT 1
+                FOR UPDATE SKIP LOCKED
+            )
+            RETURNING address
+            "#,
+        )
+        .fetch_optional(&self.pool)
+        .await?;
+
+        debug!(
+            address = address.as_deref().unwrap_or("none"),
+            elapsed_ms = started.elapsed().as_millis(),
+            "take_pending_address"
+        );
+
+        Ok(address)
+    }
+
+    #[instrument(skip(self), fields(address = %mask_addr(address), worker_id))]
+    pub async fn bind_worker_to_address(&self, worker_id: u32, address: &str) -> Result<u64> {
+        let started = Instant::now();
+        let worker_id = i32::try_from(worker_id).unwrap_or(i32::MAX);
+
+        let result = sqlx::query(
+            r#"
+            UPDATE processing_data
+            SET worker_id  = $1,
+                updated_at = now()
+            WHERE address = $2
+              AND status = 'indexing'
+            "#,
+        )
+        .bind(worker_id)
+        .bind(address)
+        .execute(&self.pool)
+        .await?;
+
+        let updated = result.rows_affected();
+        debug!(
+            updated,
+            elapsed_ms = started.elapsed().as_millis(),
+            "Worker bound to address"
+        );
+
+        Ok(updated)
+    }
+
+    #[instrument(skip(self), fields(address = %mask_addr(address), status))]
+    pub async fn update_processing_status(&self, address: &str, status: &str) -> Result<u64> {
+        let started = Instant::now();
+        let result = sqlx::query(
+            r#"
+            UPDATE processing_data
+            SET status     = $1,
+                updated_at = now()
+            WHERE address = $2
+              AND status = 'indexing'
+            "#,
+        )
+        .bind(status)
+        .bind(address)
+        .execute(&self.pool)
+        .await?;
+
+        let updated = result.rows_affected();
+        debug!(
+            updated,
+            elapsed_ms = started.elapsed().as_millis(),
+            "Processing status updated"
+        );
+
+        Ok(updated)
+    }
 }
