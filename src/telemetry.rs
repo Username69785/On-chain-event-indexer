@@ -6,8 +6,7 @@ use tracing_subscriber::{EnvFilter, fmt, prelude::*};
 static LOG_GUARD: OnceLock<tracing_appender::non_blocking::WorkerGuard> = OnceLock::new();
 
 pub fn init() -> Result<()> {
-    let env_filter =
-        EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info"));
+    let env_filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info"));
 
     // Only emit ANSI escape codes when stderr is an interactive terminal.
     // IDE log panes / files usually don't interpret ANSI, so forcing it makes logs look "broken".

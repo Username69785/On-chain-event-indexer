@@ -1,4 +1,5 @@
-use anyhow::Result;
+use anyhow::{Ok, Result};
+use futures::future::ok;
 use std::time::Instant;
 use tokio::time::{Duration, sleep};
 use tracing::{debug, info, warn};
@@ -15,20 +16,47 @@ use api::*;
 mod logging;
 mod telemetry;
 
+struct AppState {
+    database: Database,
+    helius_api: HeliusApi,
+}
+
 #[tokio::main]
 async fn main() -> Result<()> {
     telemetry::init()?;
+
+    let app_state = AppState {
+        database: Database::new_pool().await?,
+        helius_api: HeliusApi::new(),
+    };
+
     let started = Instant::now();
-    let database = Database::new_pool().await?;
-    let helius_api = HeliusApi::new();
+
+    create(app_state.database.pool.clone()).await;
+    // TODO: начать трекать запросы с фронта, адресс записывать в бд
+
+    // TODO: брать адрес с бд
+    fetching_signatures(&app_state, "airsent").await?;
+    fetched_unprocessed_signatures(&app_state, "airsent").await?;
+
+    info!(
+        elapsed_ms = started.elapsed().as_millis(),
+        "Indexer finished"
+    );
+
+    Ok(())
+}
+
+async fn fetching_signatures(app_state: &AppState, address: &str) -> Result<()> {
+    let database = &app_state.database;
+    let helius_api = &app_state.helius_api;
 
     let mut cur_last_signature: Option<String> = None;
     let mut sum: usize = 0;
-    let address = "Ckn17KaYABk3gTdgHxZtDwQpCwnKHyyXzTX6SDH7ma44";
     let masked_address = logging::mask_addr(address);
     let run_span = tracing::info_span!("indexer_run", address = %masked_address);
     let _run_guard = run_span.enter();
-    info!("Indexer started");
+    info!("Fetching signatures started");
 
     let sync_started = Instant::now();
     loop {
@@ -71,6 +99,13 @@ async fn main() -> Result<()> {
         "Signature sync finished"
     );
 
+    Ok(())
+}
+
+async fn fetched_unprocessed_signatures(app_state: &AppState, address: &str) -> Result<()> {
+    let database = &app_state.database;
+    let helius_api = &app_state.helius_api;
+
     loop {
         let signatures = database.get_unprocessed_signatures(address, 100).await?;
         info!(count = signatures.len(), "Fetched unprocessed signatures");
@@ -112,11 +147,6 @@ async fn main() -> Result<()> {
             "Transaction data saved"
         );
     }
-
-    info!(
-        elapsed_ms = started.elapsed().as_millis(),
-        "Indexer finished"
-    );
 
     Ok(())
 }

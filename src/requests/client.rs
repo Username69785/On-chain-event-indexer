@@ -120,7 +120,9 @@ impl HeliusApi {
             debug!("Fetching transaction chunk");
 
             let chunk_responses = stream::iter(signatures.iter().cloned())
-                .map(|signature| async move { self.fetch_transaction_by_signature(signature).await })
+                .map(
+                    |signature| async move { self.fetch_transaction_by_signature(signature).await },
+                )
                 .buffered(10)
                 .collect::<Vec<_>>()
                 .await;
@@ -234,7 +236,7 @@ impl HeliusApi {
                     status_code: None,
                     rpc_code: None,
                     message: format!("request failed: {}", error),
-                })
+                });
             }
         };
 

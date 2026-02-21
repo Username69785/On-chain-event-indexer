@@ -254,3 +254,51 @@
 11:23:40.888389  INFO indexer_run{[3maddress[0m[2m=[0mCkn17...7ma44}: on_chain_event_indexer: Fetched unprocessed signatures count=0
 11:23:40.888434  INFO indexer_run{[3maddress[0m[2m=[0mCkn17...7ma44}: on_chain_event_indexer: No more signatures available
 11:23:40.888464  INFO indexer_run{[3maddress[0m[2m=[0mCkn17...7ma44}: on_chain_event_indexer: Indexer finished elapsed_ms=116946
+10:47:29.492054  INFO on_chain_event_indexer::telemetry: Logger initialized
+10:47:29.500108  WARN new_pool: sqlx::postgres::notice: database "app_db" has a collation version mismatch
+10:47:29.502011  INFO new_pool: on_chain_event_indexer::database: Database pool created elapsed_ms=9
+10:47:29.517974  INFO on_chain_event_indexer::api: Starting API server initialization
+10:50:42.153883  INFO on_chain_event_indexer::telemetry: Logger initialized
+10:50:42.157431  WARN new_pool: sqlx::postgres::notice: database "app_db" has a collation version mismatch
+10:50:42.157709  INFO new_pool: on_chain_event_indexer::database: Database pool created elapsed_ms=3
+10:50:42.169735  INFO on_chain_event_indexer::api: Starting API server initialization
+10:50:42.169971  INFO on_chain_event_indexer::api: API listener bound address="127.0.0.1:8080"
+10:50:42.169989  INFO on_chain_event_indexer::api: API server is running
+10:59:24.742179  INFO on_chain_event_indexer::telemetry: Logger initialized
+10:59:24.746883  WARN new_pool: sqlx::postgres::notice: database "app_db" has a collation version mismatch
+10:59:24.747767  INFO new_pool: on_chain_event_indexer::database: Database pool created elapsed_ms=5
+10:59:24.767017  INFO on_chain_event_indexer::api: Starting API server initialization
+11:00:24.492761  INFO on_chain_event_indexer::telemetry: Logger initialized
+11:00:24.496685  WARN new_pool: sqlx::postgres::notice: database "app_db" has a collation version mismatch
+11:00:24.497140  INFO new_pool: on_chain_event_indexer::database: Database pool created elapsed_ms=4
+11:00:24.511266  INFO on_chain_event_indexer::api: Starting API server initialization
+11:01:58.092313  INFO on_chain_event_indexer::telemetry: Logger initialized
+11:01:58.095339  WARN new_pool: sqlx::postgres::notice: database "app_db" has a collation version mismatch
+11:01:58.095580  INFO new_pool: on_chain_event_indexer::database: Database pool created elapsed_ms=3
+11:01:58.106208  INFO on_chain_event_indexer::api: Starting API server initialization
+11:01:58.106461  INFO on_chain_event_indexer::api: API listener bound address="127.0.0.1:8080"
+11:01:58.106481  INFO on_chain_event_indexer::api: API server is running
+11:02:53.477126  INFO on_chain_event_indexer::telemetry: Logger initialized
+11:02:53.481134  WARN new_pool: sqlx::postgres::notice: database "app_db" has a collation version mismatch
+11:02:53.481410  INFO new_pool: on_chain_event_indexer::database: Database pool created elapsed_ms=3
+11:02:53.495941  INFO on_chain_event_indexer::api: Starting API server initialization
+11:02:53.496224  INFO on_chain_event_indexer::api: API listener bound address="127.0.0.1:8080"
+11:02:53.496244  INFO on_chain_event_indexer::api: API server is running
+11:08:23.206171  INFO on_chain_event_indexer::telemetry: Logger initialized
+11:08:23.209959  WARN new_pool: sqlx::postgres::notice: database "app_db" has a collation version mismatch
+11:08:23.210166  INFO new_pool: on_chain_event_indexer::database: Database pool created elapsed_ms=3
+11:08:23.226455  INFO on_chain_event_indexer::api: Starting API server initialization
+11:08:23.226741  INFO on_chain_event_indexer::api: API listener bound address="127.0.0.1:8080"
+11:08:23.226765  INFO on_chain_event_indexer::api: API server is running
+11:52:33.644171  INFO on_chain_event_indexer::telemetry: Logger initialized
+11:52:33.647796  WARN new_pool: sqlx::postgres::notice: database "app_db" has a collation version mismatch
+11:52:33.648220  INFO new_pool: on_chain_event_indexer::database: Database pool created elapsed_ms=3
+11:52:33.658876  INFO on_chain_event_indexer::api: Starting API server initialization
+11:52:33.659154  INFO on_chain_event_indexer::api: API listener bound address="127.0.0.1:8080"
+11:52:33.659172  INFO on_chain_event_indexer::api: API server is running
+11:53:14.409603  INFO on_chain_event_indexer::api: Received address processing request address=px1rb...z2HwH
+11:53:14.432375 ERROR on_chain_event_indexer::api: Failed to create processing job error=error returned from database: null value in column "worker_id" of relation "processing_data" violates not-null constraint
+11:53:29.762967  INFO on_chain_event_indexer::api: Received address processing request address=px1rb...z2HwH
+11:53:29.763936 ERROR on_chain_event_indexer::api: Failed to create processing job error=error returned from database: null value in column "worker_id" of relation "processing_data" violates not-null constraint
+11:53:31.136475  INFO on_chain_event_indexer::api: Received address processing request address=px1rb...z2HwH
+11:53:31.137366 ERROR on_chain_event_indexer::api: Failed to create processing job error=error returned from database: null value in column "worker_id" of relation "processing_data" violates not-null constraint
