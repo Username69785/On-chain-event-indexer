@@ -22,3 +22,84 @@
 12:41:24.117382  INFO on_chain_event_indexer::api: Processing job skipped: address already exists address=Cq1vY...R3Gaq
 12:41:25.983798  INFO on_chain_event_indexer::api: Received address processing request address=Cq1vY...R3Gaq
 12:41:25.984521  INFO on_chain_event_indexer::api: Processing job skipped: address already exists address=Cq1vY...R3Gaq
+17:06:43.963621  INFO on_chain_event_indexer::telemetry: Logger initialized
+17:06:43.969607  WARN new_pool: sqlx::postgres::notice: database "app_db" has a collation version mismatch
+17:06:43.971699  INFO new_pool: on_chain_event_indexer::database: Database pool created elapsed_ms=7
+17:06:43.987911  INFO on_chain_event_indexer::api: Starting API server initialization
+17:06:43.988321  INFO on_chain_event_indexer::api: API listener bound address="127.0.0.1:8080"
+17:06:43.988371  INFO on_chain_event_indexer::api: API server is running
+17:06:43.990776  WARN take_pending_address: sqlx::postgres::notice: database "app_db" has a collation version mismatch
+17:06:43.990942  WARN take_pending_address: sqlx::postgres::notice: database "app_db" has a collation version mismatch
+17:06:43.991066  WARN take_pending_address: sqlx::postgres::notice: database "app_db" has a collation version mismatch
+17:06:44.009097  WARN bind_worker_to_address{[3maddress[0m[2m=[0mDfsRQ...FiCc6}: sqlx::postgres::notice: database "app_db" has a collation version mismatch
+17:06:44.009336  INFO indexer_run{[3maddress[0m[2m=[0mpx1rb...z2HwH}: on_chain_event_indexer: Fetching signatures started
+17:06:44.010150  INFO indexer_run{[3maddress[0m[2m=[0mCq1vY...R3Gaq}: on_chain_event_indexer: Fetching signatures started
+17:06:44.012378  INFO indexer_run{[3maddress[0m[2m=[0mpx1rb...z2HwH}:indexer_run{[3maddress[0m[2m=[0mDfsRQ...FiCc6}: on_chain_event_indexer: Fetching signatures started
+17:06:44.430199  INFO indexer_run{[3maddress[0m[2m=[0mCq1vY...R3Gaq}: on_chain_event_indexer: Signatures page received page_len=116 total=116 elapsed_ms=419
+17:06:44.442510  INFO on_chain_event_indexer: No more signatures available
+17:06:44.442553  INFO on_chain_event_indexer: Signature sync finished total=116 elapsed_ms=432
+17:06:44.448604  INFO on_chain_event_indexer: Fetched unprocessed signatures count=100
+17:06:44.466500  INFO indexer_run{[3maddress[0m[2m=[0mpx1rb...z2HwH}:indexer_run{[3maddress[0m[2m=[0mDfsRQ...FiCc6}: on_chain_event_indexer: Signatures page received page_len=62 total=62 elapsed_ms=454
+17:06:44.469508  INFO indexer_run{[3maddress[0m[2m=[0mpx1rb...z2HwH}:indexer_run{[3maddress[0m[2m=[0mDfsRQ...FiCc6}: on_chain_event_indexer: No more signatures available
+17:06:44.469553  INFO indexer_run{[3maddress[0m[2m=[0mpx1rb...z2HwH}:indexer_run{[3maddress[0m[2m=[0mDfsRQ...FiCc6}: on_chain_event_indexer: Signature sync finished total=62 elapsed_ms=457
+17:06:44.470665  INFO indexer_run{[3maddress[0m[2m=[0mpx1rb...z2HwH}: on_chain_event_indexer: Fetched unprocessed signatures count=60
+17:06:44.558111  INFO on_chain_event_indexer: Signatures page received page_len=1000 total=1000 elapsed_ms=548
+17:06:45.116280  INFO indexer_run{[3maddress[0m[2m=[0mpx1rb...z2HwH}:get_transaction{[3mtotal[0m[2m=[0m60}: on_chain_event_indexer::requests::client: Transactions chunk received chunk_success=10 chunk_failed=0 total_success=10 total_failed=0 elapsed_ms=645
+17:06:45.255346  INFO get_transaction{[3mtotal[0m[2m=[0m100}: on_chain_event_indexer::requests::client: Transactions chunk received chunk_success=10 chunk_failed=0 total_success=10 total_failed=0 elapsed_ms=806
+17:06:45.389623  INFO get_transaction{[3mtotal[0m[2m=[0m100}:tx_chunk{[3mchunk_index[0m[2m=[0m0 [3mchunk_len[0m[2m=[0m10}: on_chain_event_indexer: Signatures page received page_len=1000 total=2000 elapsed_ms=695
+17:06:45.405223  INFO on_chain_event_indexer: No more signatures available
+17:06:45.405295  INFO on_chain_event_indexer: Signature sync finished total=2000 elapsed_ms=1395
+17:06:45.409786  INFO on_chain_event_indexer: Fetched unprocessed signatures count=100
+17:06:45.856776  INFO get_transaction{[3mtotal[0m[2m=[0m100}: on_chain_event_indexer::requests::client: Transactions chunk received chunk_success=10 chunk_failed=0 total_success=10 total_failed=0 elapsed_ms=446
+17:06:46.524512  INFO indexer_run{[3maddress[0m[2m=[0mpx1rb...z2HwH}:get_transaction{[3mtotal[0m[2m=[0m60}: on_chain_event_indexer::requests::client: Transactions chunk received chunk_success=10 chunk_failed=0 total_success=20 total_failed=0 elapsed_ms=256
+17:06:46.705031  INFO get_transaction{[3mtotal[0m[2m=[0m100}: on_chain_event_indexer::requests::client: Transactions chunk received chunk_success=5 chunk_failed=5 total_success=15 total_failed=5 elapsed_ms=298
+17:06:46.705104  WARN get_transaction{[3mtotal[0m[2m=[0m100}: on_chain_event_indexer::requests::client: Transaction chunk completed with failures signature=3rrDR...2THEw status_code=Some(429) rpc_code=Some(-32429) rate limited
+17:06:47.321297  INFO get_transaction{[3mtotal[0m[2m=[0m100}: on_chain_event_indexer::requests::client: Transactions chunk received chunk_success=10 chunk_failed=0 total_success=20 total_failed=0 elapsed_ms=313
+17:06:48.084521  INFO indexer_run{[3maddress[0m[2m=[0mpx1rb...z2HwH}:get_transaction{[3mtotal[0m[2m=[0m60}: on_chain_event_indexer::requests::client: Transactions chunk received chunk_success=10 chunk_failed=0 total_success=30 total_failed=0 elapsed_ms=408
+17:06:48.170435  INFO get_transaction{[3mtotal[0m[2m=[0m100}: on_chain_event_indexer::requests::client: Transactions chunk received chunk_success=9 chunk_failed=1 total_success=24 total_failed=6 elapsed_ms=314
+17:06:48.170484  WARN get_transaction{[3mtotal[0m[2m=[0m100}: on_chain_event_indexer::requests::client: Transaction chunk completed with failures signature=wNNFR...dWiV6 status_code=Some(429) rpc_code=Some(-32429) rate limited
+17:06:48.784249  INFO get_transaction{[3mtotal[0m[2m=[0m100}: on_chain_event_indexer::requests::client: Transactions chunk received chunk_success=10 chunk_failed=0 total_success=30 total_failed=0 elapsed_ms=311
+17:06:49.611721  INFO indexer_run{[3maddress[0m[2m=[0mpx1rb...z2HwH}:get_transaction{[3mtotal[0m[2m=[0m60}: on_chain_event_indexer::requests::client: Transactions chunk received chunk_success=10 chunk_failed=0 total_success=40 total_failed=0 elapsed_ms=375
+17:24:52.881492  INFO on_chain_event_indexer::telemetry: Logger initialized
+17:24:52.884906  WARN new_pool: sqlx::postgres::notice: database "app_db" has a collation version mismatch
+17:24:52.885173  INFO new_pool: on_chain_event_indexer::database: Database pool created elapsed_ms=3
+17:24:52.896009  INFO on_chain_event_indexer::api: Starting API server initialization
+17:24:52.896257  INFO on_chain_event_indexer::api: API listener bound address="127.0.0.1:8080"
+17:24:52.896280  INFO on_chain_event_indexer::api: API server is running
+17:24:52.898712  WARN claim_pending_job: sqlx::postgres::notice: database "app_db" has a collation version mismatch
+17:24:52.899165  WARN claim_pending_job: sqlx::postgres::notice: database "app_db" has a collation version mismatch
+17:24:52.899174  WARN claim_pending_job: sqlx::postgres::notice: database "app_db" has a collation version mismatch
+17:28:02.545566  INFO on_chain_event_indexer::telemetry: Logger initialized
+17:28:02.548487  WARN new_pool: sqlx::postgres::notice: database "app_db" has a collation version mismatch
+17:28:02.548879  INFO new_pool: on_chain_event_indexer::database: Database pool created elapsed_ms=3
+17:28:02.559218  INFO on_chain_event_indexer::api: Starting API server initialization
+17:28:02.559594  INFO on_chain_event_indexer::api: API listener bound address="127.0.0.1:8080"
+17:28:02.559640  INFO on_chain_event_indexer::api: API server is running
+17:28:02.561994  WARN claim_pending_job: sqlx::postgres::notice: database "app_db" has a collation version mismatch
+17:28:02.562214  WARN claim_pending_job: sqlx::postgres::notice: database "app_db" has a collation version mismatch
+17:28:02.562748  WARN claim_pending_job: sqlx::postgres::notice: database "app_db" has a collation version mismatch
+17:40:08.704213  INFO on_chain_event_indexer::telemetry: Logger initialized
+17:40:08.707560  INFO new_pool: on_chain_event_indexer::database: Database pool created elapsed_ms=2
+17:40:08.718373  INFO on_chain_event_indexer::api: Starting API server initialization
+17:40:08.718634  INFO on_chain_event_indexer::api: API listener bound address="127.0.0.1:8080"
+17:40:08.718652  INFO on_chain_event_indexer::api: API server is running
+17:40:23.654892  INFO on_chain_event_indexer::api: Received address processing request address=HELL1...A6kFe
+17:40:23.657900  INFO on_chain_event_indexer::api: Processing job created job_id=1
+17:40:23.764839  INFO indexer_run{[3maddress[0m[2m=[0mHELL1...A6kFe}: on_chain_event_indexer: Fetching signatures started
+17:40:25.195770  INFO indexer_run{[3maddress[0m[2m=[0mHELL1...A6kFe}: on_chain_event_indexer::api: Received address processing request address=BLp38...GhLuN
+17:40:25.202437  INFO on_chain_event_indexer::api: Processing job created job_id=2
+17:40:25.221463  INFO indexer_run{[3maddress[0m[2m=[0mBLp38...GhLuN}: on_chain_event_indexer: Fetching signatures started
+17:40:26.290301  INFO indexer_run{[3maddress[0m[2m=[0mHELL1...A6kFe}: on_chain_event_indexer: Signatures page received page_len=1000 total=1000 elapsed_ms=1068
+17:40:26.943163  INFO on_chain_event_indexer: Signatures page received page_len=1000 total=1000 elapsed_ms=3178
+17:40:27.416870  INFO on_chain_event_indexer: Signatures page received page_len=1000 total=2000 elapsed_ms=987
+17:40:27.435575  INFO indexer_run{[3maddress[0m[2m=[0mBLp38...GhLuN}: on_chain_event_indexer: No more signatures available
+17:40:27.435724  INFO indexer_run{[3maddress[0m[2m=[0mBLp38...GhLuN}: on_chain_event_indexer: Signature sync finished total=2000 elapsed_ms=2214
+17:40:27.439123  INFO on_chain_event_indexer: Fetched unprocessed signatures count=100
+17:40:27.840743  INFO on_chain_event_indexer: Signatures page received page_len=1000 total=2000 elapsed_ms=757
+17:40:27.856843  INFO on_chain_event_indexer: No more signatures available
+17:40:27.856931  INFO on_chain_event_indexer: Signature sync finished total=2000 elapsed_ms=4092
+17:40:27.859467  INFO on_chain_event_indexer: Fetched unprocessed signatures count=100
+17:40:28.477271  INFO get_transaction{[3mtotal[0m[2m=[0m100}: on_chain_event_indexer::requests::client: Transactions chunk received chunk_success=10 chunk_failed=0 total_success=10 total_failed=0 elapsed_ms=617
+17:40:28.690444  INFO get_transaction{[3mtotal[0m[2m=[0m100}: on_chain_event_indexer::requests::client: Transactions chunk received chunk_success=10 chunk_failed=0 total_success=10 total_failed=0 elapsed_ms=1251
+17:40:30.001707  INFO get_transaction{[3mtotal[0m[2m=[0m100}: on_chain_event_indexer::requests::client: Transactions chunk received chunk_success=10 chunk_failed=0 total_success=20 total_failed=0 elapsed_ms=373
+17:40:30.299832  INFO get_transaction{[3mtotal[0m[2m=[0m100}: on_chain_event_indexer::requests::client: Transactions chunk received chunk_success=10 chunk_failed=0 total_success=20 total_failed=0 elapsed_ms=458

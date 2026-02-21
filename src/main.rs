@@ -1,6 +1,6 @@
-use anyhow::{Ok, Result};
-use futures::future::ok;
-use std::time::Instant;
+use anyhow::Result;
+use std::{sync::Arc, time::Instant};
+use tokio::task::JoinHandle;
 use tokio::time::{Duration, sleep};
 use tracing::{debug, info, warn};
 
@@ -12,6 +12,9 @@ use database::*;
 
 mod api;
 use api::*;
+
+mod backoff;
+use backoff::WorkerBackoff;
 
 mod logging;
 mod telemetry;
@@ -25,26 +28,108 @@ struct AppState {
 async fn main() -> Result<()> {
     telemetry::init()?;
 
-    let app_state = AppState {
+    let app_state = Arc::new(AppState {
         database: Database::new_pool().await?,
         helius_api: HeliusApi::new(),
-    };
+    });
 
-    let started = Instant::now();
+    // Ловит запросы с фронта (запускаем в отдельной задаче, чтобы не блокировать воркеров)
+    let server_handle = tokio::spawn(create_server(app_state.database.pool.clone()));
 
-    create(app_state.database.pool.clone()).await;
-    // TODO: начать трекать запросы с фронта, адресс записывать в бд
+    let worker_handles: Vec<JoinHandle<Result<()>>> = (1..5)
+        .into_iter()
+        .map(|worker_id| {
+            let state = Arc::clone(&app_state);
+            tokio::spawn(worker_loop(state, worker_id))
+        })
+        .collect();
 
-    // TODO: брать адрес с бд
-    fetching_signatures(&app_state, "airsent").await?;
-    fetched_unprocessed_signatures(&app_state, "airsent").await?;
-
-    info!(
-        elapsed_ms = started.elapsed().as_millis(),
-        "Indexer finished"
-    );
+    // Ждём завершения всех задач (сервер + воркеры)
+    tokio::select! {
+        res = server_handle => {
+            warn!("API server exited: {:?}", res);
+        }
+        _ = futures::future::join_all(worker_handles) => {
+            warn!("All workers exited");
+        }
+    }
 
     Ok(())
+}
+
+async fn worker_loop(app_state: Arc<AppState>, worker_id: u32) -> Result<()> {
+    let mut worker_backoff = WorkerBackoff::new(200, 2000, 0.5);
+    loop {
+        let started = Instant::now();
+        let claimed_job: ClaimedJob = loop {
+            let claimed_job = app_state.database.claim_pending_job(worker_id).await;
+
+            match claimed_job {
+                Ok(Some(job)) => {
+                    worker_backoff.reset();
+                    break job;
+                }
+                Ok(None) => {
+                    let delay = worker_backoff.step_and_get_sleep_duration();
+                    sleep(delay).await;
+                    continue;
+                }
+                Err(err) => {
+                    warn!(%err, worker_id, "Failed to claim pending job");
+                    let delay = worker_backoff.step_and_get_sleep_duration();
+                    sleep(delay).await;
+                    continue;
+                }
+            }
+        };
+
+        let job_id = claimed_job.job_id;
+        let address = claimed_job.address;
+
+        let processing_result: Result<()> = async {
+            fetching_signatures(&app_state, &address).await?;
+            fetched_unprocessed_signatures(&app_state, &address).await?;
+            Ok(())
+        }
+        .await;
+
+        match processing_result {
+            Ok(_) => {
+                if let Err(err) = app_state
+                    .database
+                    .update_processing_status_by_job_id(job_id, "ready")
+                    .await
+                {
+                    warn!(
+                        %err,
+                        job_id,
+                        worker_id,
+                        "Failed to update processing status to ready"
+                    );
+                }
+
+                info!(
+                    elapsed_ms = started.elapsed().as_millis(),
+                    worker_id, job_id, "Indexer finished for {}", &address
+                );
+            }
+            Err(err) => {
+                warn!(%err, worker_id, job_id, "Indexer failed for {}", &address);
+                if let Err(status_err) = app_state
+                    .database
+                    .update_processing_status_by_job_id(job_id, "error")
+                    .await
+                {
+                    warn!(
+                        %status_err,
+                        job_id,
+                        worker_id,
+                        "Failed to update processing status to error"
+                    );
+                }
+            }
+        }
+    }
 }
 
 async fn fetching_signatures(app_state: &AppState, address: &str) -> Result<()> {
