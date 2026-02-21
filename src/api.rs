@@ -1,15 +1,15 @@
 use axum::{
     Router,
     extract::{Json, Path, State},
+    http,
     response::IntoResponse,
     routing::{get, post},
-    http,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use sqlx::{FromRow, PgPool, Row};
+use tower_http::cors::{Any, CorsLayer};
 use tracing::{error, info, warn};
-    use tower_http::cors::{CorsLayer, Any};
 
 use crate::logging::mask_addr;
 
@@ -24,14 +24,18 @@ pub struct JobStatus {
     pub updated_at: chrono::NaiveDateTime,
 }
 
-pub async fn create(pool: PgPool) {
+pub async fn create_server(pool: PgPool) {
     info!("Starting API server initialization");
 
     // Разрешаем cors
     let cors = CorsLayer::new()
-    .allow_origin("http://127.0.0.1:5500".parse::<http::HeaderValue>().unwrap())
-    .allow_methods(Any)
-    .allow_headers(Any);
+        .allow_origin(
+            "http://127.0.0.1:5500"
+                .parse::<http::HeaderValue>()
+                .unwrap(),
+        )
+        .allow_methods(Any)
+        .allow_headers(Any);
 
     // Создаем роутер
     let app = Router::new()
@@ -60,25 +64,33 @@ pub async fn address_processing(
         "Received address processing request"
     );
 
-    let query = "INSERT INTO processing_data (address, day, status, created_at, updated_at) 
-                 VALUES ($1, CURRENT_DATE, 'pending', NOW(), NOW())
+    let query = "INSERT INTO processing_data (address, day, status, created_at, updated_at)
+                 SELECT $1, CURRENT_DATE, 'pending', NOW(), NOW()
+                 WHERE NOT EXISTS (
+                     SELECT 1 FROM processing_data WHERE address = $1
+                 )
                  RETURNING id";
-    // TODO: реализовать добавление worker_id, изменить запрос, сейчас null value in column "worker_id"
 
     match sqlx::query(query)
         .bind(&payload.address)
-        .fetch_one(&pool)
+        .fetch_optional(&pool)
         .await
     {
-        Ok(row) => {
-            let id: i32 = row.get("id");
+        Ok(Some(row)) => {
+            let id: i64 = row.get("id");
             info!(job_id = id, "Processing job created");
             Json(json!({ "status": "ok", "job_id": id }))
+        }
+        Ok(None) => {
+            info!(
+                address = %mask_addr(&payload.address),
+                "Processing job skipped: address already exists"
+            );
+            Json(json!({ "status": "ok", "message": "address already exists" }))
         }
         Err(e) => {
             error!(error = %e, "Failed to create processing job");
             Json(json!({ "status": "error", "message": e.to_string() }))
-            // TODO: отправлять job_id
         }
     }
 }
