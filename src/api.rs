@@ -95,7 +95,7 @@ pub async fn address_processing(
     }
 }
 
-pub async fn get_job_status(State(pool): State<PgPool>, Path(id): Path<i32>) -> impl IntoResponse {
+pub async fn get_job_status(State(pool): State<PgPool>, Path(id): Path<i64>) -> impl IntoResponse {
     info!(job_id = id, "Received job status request");
     let query = "SELECT status, updated_at FROM processing_data WHERE id = $1";
 
