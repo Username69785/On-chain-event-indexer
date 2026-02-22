@@ -6,6 +6,16 @@ use reqwest::Client;
 use serde_json::{Value, json};
 use tokio::time::{Duration, sleep};
 use tracing::{debug, info, instrument, warn};
+use governor::{
+    clock::DefaultClock,
+    middleware::NoOpMiddleware,
+    state::{InMemoryState, NotKeyed},
+    Quota, RateLimiter,
+};
+use nonzero_ext::nonzero;
+use std::sync::Arc;
+use tokio::sync::Semaphore;
+
 
 use crate::logging::mask_addr;
 
@@ -19,19 +29,27 @@ enum TransactionFetchOutcome {
     Failed(TransactionFetchError),
 }
 
+type GlobalRateLimiter = RateLimiter<NotKeyed, InMemoryState, DefaultClock, NoOpMiddleware>;
+
 pub struct HeliusApi {
     api: String,
     url: String,
     client: Client,
+    rate_limiter: Arc<GlobalRateLimiter>, // Лимитер RPS
+    semaphore: Arc<Semaphore>, // Ограничения одновременных запросов
 }
 
 impl HeliusApi {
-    pub fn new() -> Self {
+    pub fn new(rps: u32, max_concurrent: usize) -> Self {
+        let quota = Quota::per_second(std::num::NonZeroU32::new(rps).unwrap()); 
+        let rate_limiter = Arc::new(RateLimiter::direct(quota));
+        let semaphore = Arc::new(Semaphore::new(max_concurrent));
+
         let api = dotenvy::var("api").expect("api не найден в .env");
         let client = Client::new();
         let url = String::from("https://mainnet.helius-rpc.com/?api-key=");
 
-        HeliusApi { api, url, client }
+        HeliusApi { api, url, client, rate_limiter, semaphore }
     }
 
     #[instrument(skip(self), fields(address = %mask_addr(adress), before = ?last_signature))]
@@ -40,6 +58,9 @@ impl HeliusApi {
         adress: &str,
         last_signature: Option<String>,
     ) -> Result<(RpcResponse, Option<String>)> {
+        self.rate_limiter.until_ready().await;
+        let _permit = self.semaphore.acquire().await?;
+
         let body = json!({
             "jsonrpc": "2.0",
             "id": "1",
@@ -208,6 +229,19 @@ impl HeliusApi {
     }
 
     async fn fetch_transaction_by_signature(&self, signature: String) -> TransactionFetchOutcome {
+        self.rate_limiter.until_ready().await;
+        let _permit = match self.semaphore.acquire().await {
+            Ok(permit) => permit,
+            Err(error) => {
+                return TransactionFetchOutcome::Failed(TransactionFetchError {
+                    signature,
+                    status_code: None,
+                    rpc_code: None,
+                    message: format!("failed to acquire semaphore permit: {}", error),
+                });
+            }
+        };
+
         let body = json!({
             "jsonrpc": "2.0",
             "id": "1",

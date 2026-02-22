@@ -30,7 +30,7 @@ async fn main() -> Result<()> {
 
     let app_state = Arc::new(AppState {
         database: Database::new_pool().await?,
-        helius_api: HeliusApi::new(),
+        helius_api: HeliusApi::new(9, 5),
     });
 
     // Ловит запросы с фронта (запускаем в отдельной задаче, чтобы не блокировать воркеров)

@@ -103,3 +103,60 @@
 17:40:28.690444  INFO get_transaction{[3mtotal[0m[2m=[0m100}: on_chain_event_indexer::requests::client: Transactions chunk received chunk_success=10 chunk_failed=0 total_success=10 total_failed=0 elapsed_ms=1251
 17:40:30.001707  INFO get_transaction{[3mtotal[0m[2m=[0m100}: on_chain_event_indexer::requests::client: Transactions chunk received chunk_success=10 chunk_failed=0 total_success=20 total_failed=0 elapsed_ms=373
 17:40:30.299832  INFO get_transaction{[3mtotal[0m[2m=[0m100}: on_chain_event_indexer::requests::client: Transactions chunk received chunk_success=10 chunk_failed=0 total_success=20 total_failed=0 elapsed_ms=458
+12:42:32.849002  INFO on_chain_event_indexer::telemetry: Logger initialized
+12:42:32.860199  INFO new_pool: on_chain_event_indexer::database: Database pool created elapsed_ms=10
+12:42:32.876931  INFO on_chain_event_indexer::frontend: Starting API server initialization
+12:42:32.877240  INFO on_chain_event_indexer::frontend: API listener bound address="127.0.0.1:8080"
+12:42:32.877263  INFO on_chain_event_indexer::frontend: API server is running
+12:42:38.014631  INFO on_chain_event_indexer::frontend: Received address processing request address=6KPYD...eruu2
+12:42:38.024356  INFO on_chain_event_indexer::frontend: Processing job created job_id=3
+12:42:38.119292  INFO indexer_run{[3maddress[0m[2m=[0m6KPYD...eruu2}: on_chain_event_indexer: Fetching signatures started
+12:42:38.791207  INFO on_chain_event_indexer: Signatures page received page_len=1000 total=1000 elapsed_ms=671
+12:42:39.297267  INFO indexer_run{[3maddress[0m[2m=[0m6KPYD...eruu2}: on_chain_event_indexer: Signatures page received page_len=1000 total=2000 elapsed_ms=354
+12:42:39.310694  INFO indexer_run{[3maddress[0m[2m=[0m6KPYD...eruu2}: on_chain_event_indexer: No more signatures available
+12:42:39.310777  INFO indexer_run{[3maddress[0m[2m=[0m6KPYD...eruu2}: on_chain_event_indexer: Signature sync finished total=2000 elapsed_ms=1191
+12:42:39.317836  INFO on_chain_event_indexer: Fetched unprocessed signatures count=100
+12:42:39.999959  INFO get_transaction{[3mtotal[0m[2m=[0m100}: on_chain_event_indexer::requests::client: Transactions chunk received chunk_success=10 chunk_failed=0 total_success=10 total_failed=0 elapsed_ms=681
+12:42:41.673869  INFO get_transaction{[3mtotal[0m[2m=[0m100}: on_chain_event_indexer::requests::client: Transactions chunk received chunk_success=10 chunk_failed=0 total_success=20 total_failed=0 elapsed_ms=522
+12:42:46.361111  INFO on_chain_event_indexer::telemetry: Logger initialized
+12:42:46.364116  INFO new_pool: on_chain_event_indexer::database: Database pool created elapsed_ms=2
+12:42:46.375224  INFO on_chain_event_indexer::frontend: Starting API server initialization
+12:42:46.375631  INFO on_chain_event_indexer::frontend: API listener bound address="127.0.0.1:8080"
+12:42:46.375678  INFO on_chain_event_indexer::frontend: API server is running
+12:42:56.759608  INFO on_chain_event_indexer::frontend: Received address processing request address=6KPYD...eruu2
+12:42:56.760727  INFO on_chain_event_indexer::frontend: Processing job skipped: address already exists address=6KPYD...eruu2
+12:43:01.679147  INFO on_chain_event_indexer::frontend: Received address processing request address=6KPYD...eruu2
+12:43:01.680399  INFO on_chain_event_indexer::frontend: Processing job skipped: address already exists address=6KPYD...eruu2
+12:43:02.735692  INFO on_chain_event_indexer::frontend: Received address processing request address=6KPYD...eruu2
+12:43:02.736784  INFO on_chain_event_indexer::frontend: Processing job skipped: address already exists address=6KPYD...eruu2
+12:43:09.393415  INFO on_chain_event_indexer::frontend: Received address processing request address=6KPYD...eruu2
+12:43:09.394205  INFO on_chain_event_indexer::frontend: Processing job skipped: address already exists address=6KPYD...eruu2
+12:43:12.039014  INFO on_chain_event_indexer::frontend: Received address processing request address=6KPYD...eruu2
+12:43:12.040500  INFO on_chain_event_indexer::frontend: Processing job skipped: address already exists address=6KPYD...eruu2
+12:43:15.061344  INFO on_chain_event_indexer::frontend: Received address processing request address=6KPYD...eruu2
+12:43:15.062124  INFO on_chain_event_indexer::frontend: Processing job skipped: address already exists address=6KPYD...eruu2
+12:43:17.797886  INFO on_chain_event_indexer::frontend: Received address processing request address=6KPYD...eruu2
+12:43:17.799122  INFO on_chain_event_indexer::frontend: Processing job skipped: address already exists address=6KPYD...eruu2
+12:43:43.545019  INFO on_chain_event_indexer::frontend: Received address processing request address=6KPYD...eruu2
+12:43:43.546015  INFO on_chain_event_indexer::frontend: Processing job skipped: address already exists address=6KPYD...eruu2
+12:43:45.583579  INFO on_chain_event_indexer::frontend: Received address processing request address=6KPYD...eruu2
+12:43:45.584758  INFO on_chain_event_indexer::frontend: Processing job skipped: address already exists address=6KPYD...eruu2
+12:43:47.557151  INFO on_chain_event_indexer::frontend: Received address processing request address=6KPYD...eruu2
+12:43:47.558909  INFO on_chain_event_indexer::frontend: Processing job skipped: address already exists address=6KPYD...eruu2
+12:43:49.903853  INFO on_chain_event_indexer::frontend: Received address processing request address=6KPYD...eruu2
+12:43:49.904975  INFO on_chain_event_indexer::frontend: Processing job skipped: address already exists address=6KPYD...eruu2
+12:47:14.384973  INFO on_chain_event_indexer::telemetry: Logger initialized
+12:47:14.390730  INFO new_pool: on_chain_event_indexer::database: Database pool created elapsed_ms=4
+12:47:14.411551  INFO on_chain_event_indexer::frontend: Starting API server initialization
+12:47:14.412393  INFO on_chain_event_indexer::frontend: API listener bound address="127.0.0.1:8080"
+12:47:14.412440  INFO on_chain_event_indexer::frontend: API server is running
+12:47:21.628801  INFO on_chain_event_indexer::frontend: Received address processing request address=6KPYD...eruu2
+12:47:21.631648  INFO on_chain_event_indexer::frontend: Processing job created job_id=4
+12:47:21.663496  INFO indexer_run{[3maddress[0m[2m=[0m6KPYD...eruu2}: on_chain_event_indexer: Fetching signatures started
+12:47:22.172506  WARN indexer_run{[3maddress[0m[2m=[0m6KPYD...eruu2}:get_signatures{[3madress[0m[2m=[0m"6KPYDyuRnpuKcm1TerUmwLd2Bcaihv111Ccrr8beruu2" [3mlast_signature[0m[2m=[0mNone [3maddress[0m[2m=[0m6KPYD...eruu2 [3mbefore[0m[2m=[0mNone}: on_chain_event_indexer::requests::client: Empty signatures response
+12:47:22.172644  INFO on_chain_event_indexer: Signatures page received page_len=0 total=0 elapsed_ms=509
+12:47:22.172766  INFO on_chain_event_indexer: No more signatures available
+12:47:22.172817  INFO on_chain_event_indexer: Signature sync finished total=0 elapsed_ms=509
+12:47:22.175937  INFO on_chain_event_indexer: Fetched unprocessed signatures count=0
+12:47:22.175995  INFO on_chain_event_indexer: No more signatures available
+12:47:22.181834  INFO on_chain_event_indexer: Indexer finished for 6KPYDyuRnpuKcm1TerUmwLd2Bcaihv111Ccrr8beruu2 elapsed_ms=7770 worker_id=2 job_id=4
