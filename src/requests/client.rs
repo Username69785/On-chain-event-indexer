@@ -39,7 +39,7 @@ impl HeliusApi {
         &self,
         adress: &str,
         last_signature: Option<String>,
-    ) -> Result<(RpcResponse, String)> {
+    ) -> Result<(RpcResponse, Option<String>)> {
         let body = json!({
             "jsonrpc": "2.0",
             "id": "1",
@@ -94,13 +94,13 @@ impl HeliusApi {
             "Signatures response received"
         );
 
-        let last_signatures = match dsrlz_response.result.last() {
-            Some(last) => last.signature.clone(),
-            None => {
-                warn!("Empty signatures response");
-                return Err(anyhow!("empty signatures response"));
-            }
-        };
+        let last_signatures = dsrlz_response
+            .result
+            .last()
+            .map(|last| last.signature.clone());
+        if last_signatures.is_none() {
+            warn!("Empty signatures response");
+        }
 
         Ok((dsrlz_response, last_signatures))
     }

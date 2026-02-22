@@ -108,6 +108,11 @@ impl Database {
 
     #[instrument(skip(self, signatures), fields(address = %mask_addr(adress), input_count = signatures.result.len()))]
     pub async fn write_signatures(&self, signatures: &RpcResponse, adress: &str) -> Result<u64> {
+        if signatures.result.is_empty() {
+            debug!("No signatures to insert");
+            return Ok(0);
+        }
+
         let started = Instant::now();
         let mut query_builder: QueryBuilder<sqlx::Postgres> = QueryBuilder::new(
             "INSERT INTO signatures 

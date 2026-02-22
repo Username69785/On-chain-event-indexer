@@ -10,8 +10,8 @@ use requests::*;
 mod database;
 use database::*;
 
-mod api;
-use api::*;
+mod frontend;
+use frontend::*;
 
 mod backoff;
 use backoff::WorkerBackoff;
@@ -152,8 +152,6 @@ async fn fetching_signatures(app_state: &AppState, address: &str) -> Result<()> 
             .get_signatures(address, cur_last_signature)
             .await?;
 
-        // может вернуть 0 транзакций и все упадет
-
         let res_len = response.result.len();
         sum += res_len;
 
@@ -168,12 +166,12 @@ async fn fetching_signatures(app_state: &AppState, address: &str) -> Result<()> 
         debug!(inserted, "Signatures saved");
 
         // решить что как правильно поступать с проверкой; для тестов, не больше 2000
-        if res_len < 1000 || sum >= 2000 {
+        if last_signature.is_none() || res_len < 1000 || sum >= 2000 {
             info!("No more signatures available");
             break;
         }
 
-        cur_last_signature = Some(last_signature);
+        cur_last_signature = last_signature;
 
         sleep(Duration::from_millis(125)).await;
     }
