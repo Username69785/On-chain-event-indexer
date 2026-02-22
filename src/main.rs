@@ -30,7 +30,7 @@ async fn main() -> Result<()> {
 
     let app_state = Arc::new(AppState {
         database: Database::new_pool().await?,
-        helius_api: HeliusApi::new(9, 5),
+        helius_api: HeliusApi::new(8, 4),
     });
 
     // Ловит запросы с фронта (запускаем в отдельной задаче, чтобы не блокировать воркеров)
@@ -172,8 +172,6 @@ async fn fetching_signatures(app_state: &AppState, address: &str) -> Result<()> 
         }
 
         cur_last_signature = last_signature;
-
-        sleep(Duration::from_millis(125)).await;
     }
 
     info!(

@@ -4,9 +4,15 @@ document.addEventListener('DOMContentLoaded', () => {
     const statusMessage = document.getElementById('statusMessage');
     const submitBtn = document.getElementById('submitBtn');
     const btnText = submitBtn.querySelector('span');
+    let isLoading = false;
 
-    form.addEventListener('submit', async (e) => {
-        e.preventDefault();
+    const handleAnalyze = async (e) => {
+        e?.preventDefault();
+        e?.stopPropagation();
+
+        if (isLoading) {
+            return;
+        }
 
         const address = input.value.trim();
 
@@ -51,7 +57,10 @@ document.addEventListener('DOMContentLoaded', () => {
         } finally {
             setLoading(false);
         }
-    });
+    };
+
+    form.addEventListener('submit', handleAnalyze);
+    submitBtn.addEventListener('click', handleAnalyze);
 
     function showStatus(message, type) {
         statusMessage.textContent = message;
@@ -66,8 +75,10 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    function setLoading(isLoading) {
-        if (isLoading) {
+    function setLoading(loading) {
+        isLoading = loading;
+
+        if (loading) {
             submitBtn.disabled = true;
             btnText.textContent = 'Processing...';
             submitBtn.classList.add('loading');

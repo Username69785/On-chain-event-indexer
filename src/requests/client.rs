@@ -13,7 +13,7 @@ use governor::{
     Quota, RateLimiter,
 };
 use nonzero_ext::nonzero;
-use std::sync::Arc;
+use std::sync::Arc;         
 use tokio::sync::Semaphore;
 
 
@@ -144,7 +144,7 @@ impl HeliusApi {
                 .map(
                     |signature| async move { self.fetch_transaction_by_signature(signature).await },
                 )
-                .buffered(10)
+                .buffered(5)
                 .collect::<Vec<_>>()
                 .await;
 
@@ -191,8 +191,6 @@ impl HeliusApi {
                     "Transaction chunk completed with failures"
                 );
             }
-
-            sleep(Duration::from_millis(1150)).await;
         }
 
         let mut total_transfers = 0usize;

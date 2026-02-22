@@ -12,7 +12,8 @@ pub fn init() -> Result<()> {
     // IDE log panes / files usually don't interpret ANSI, so forcing it makes logs look "broken".
     let ansi_stderr = std::io::stderr().is_terminal() && std::env::var_os("NO_COLOR").is_none();
 
-    let file_appender = tracing_appender::rolling::never(".", "info/output.log");
+    let file_appender = tracing_appender::rolling::never
+    (".", "/home/main/Documents/Code/Rust/On-chain-event-indexer/output.log");
     let (non_blocking, guard) = tracing_appender::non_blocking(file_appender);
     let _ = LOG_GUARD.set(guard);
     let timer = fmt::time::ChronoLocal::new("%H:%M:%S.%6f".to_string());
