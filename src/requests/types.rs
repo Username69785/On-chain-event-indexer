@@ -26,12 +26,39 @@ pub struct RpcEnvelope<T> {
 }
 
 #[derive(Deserialize, Debug, Clone)]
-pub struct RpcError {
+pub struct Rально:
+
+онлайн через Loki/ELK (worker_id=2)
+локально: jq/rg по полю worker_id в outppcError {
     pub code: i64,
     pub message: String,
 
     #[serde(default)]
     pub data: Option<Value>,
+}
+
+pub fn is_rate_limited(status_code: Option<u16>, rpc_code: Option<i64>, message: &str) -> bool {
+    const HTTP_TOO_MANY_REQUESTS: u16 = 429;
+    const RPC_RATE_LIMITED_CODE: i64 = -32429;
+
+    if status_code == Some(HTTP_TOO_MANY_REQUESTS) {
+        return true;
+    }
+
+    if rpc_code == Some(RPC_RATE_LIMITED_CODE) {
+        return true;
+    }
+
+    let normalized = message.to_ascii_lowercase();
+    normalized.contains("rate limit")
+        || normalized.contains("rate-limited")
+        || normalized.contains("too many requests")
+}
+
+impl RpcError {
+    pub fn is_rate_limited(&self) -> bool {
+        is_rate_limited(None, Some(self.code), &self.message)
+    }
 }
 
 #[derive(Deserialize, Debug)]
@@ -52,6 +79,12 @@ pub struct TransactionFetchError {
     pub status_code: Option<u16>,
     pub rpc_code: Option<i64>,
     pub message: String,
+}
+
+impl TransactionFetchError {
+    pub fn is_rate_limited(&self) -> bool {
+        is_rate_limited(self.status_code, self.rpc_code, &self.message)
+    }
 }
 
 #[derive(Debug)]
