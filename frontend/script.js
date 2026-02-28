@@ -21,9 +21,14 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        // Solana address validation (basic length check for MVP)
-        if (address.length < 32 || address.length > 44) {
-            showStatus('Invalid Solana address format', 'error');
+        if (!isAddressLike(address)) {
+            showStatus('Invalid input data: value is not an address', 'error');
+            return;
+        }
+
+        const solanaValidation = validateSolanaAddress(address);
+        if (!solanaValidation.isValid) {
+            showStatus(solanaValidation.message, 'error');
             return;
         }
 
@@ -61,6 +66,47 @@ document.addEventListener('DOMContentLoaded', () => {
 
     form.addEventListener('submit', handleAnalyze);
     submitBtn.addEventListener('click', handleAnalyze);
+
+    function isAddressLike(value) {
+        // Basic pre-check: either EVM-like (0x...) or base58-like address.
+        const evmLike = /^0x[a-fA-F0-9]{40}$/;
+        const base58Like = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
+
+        return evmLike.test(value) || base58Like.test(value);
+    }
+
+    function validateSolanaAddress(value) {
+        if (value.startsWith('0x') || value.startsWith('0X')) {
+            return {
+                isValid: false,
+                message: 'Invalid address type: EVM (0x...) addresses are not supported',
+            };
+        }
+
+        if (value.length < 32 || value.length > 44) {
+            return {
+                isValid: false,
+                message: 'Invalid Solana address length (allowed: 32-44 chars)',
+            };
+        }
+
+        // Solana base58 alphabet excludes 0, O, I, l; case is significant.
+        if (/[0OIl]/.test(value)) {
+            return {
+                isValid: false,
+                message: 'Invalid Solana address: contains forbidden characters (0, O, I, l)',
+            };
+        }
+
+        if (!/^[1-9A-HJ-NP-Za-km-z]+$/.test(value)) {
+            return {
+                isValid: false,
+                message: 'Invalid Solana address format',
+            };
+        }
+
+        return { isValid: true, message: '' };
+    }
 
     function showStatus(message, type) {
         statusMessage.textContent = message;
