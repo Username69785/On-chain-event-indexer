@@ -52,7 +52,7 @@ impl HeliusApi {
         HeliusApi { api, url, client, rate_limiter, semaphore }
     }
 
-    #[instrument(skip(self), fields(address = %mask_addr(adress), before = ?last_signature))]
+    #[instrument(target = "client", skip(self), fields(address = %mask_addr(adress), before = ?last_signature))]
     pub async fn get_signatures(
         &self,
         adress: &str,
@@ -94,11 +94,13 @@ impl HeliusApi {
             })?;
 
         if let Some(rpc_error) = rpc_response.error {
+            let rate_limited = rpc_error.is_rate_limited();
             return Err(anyhow!(
-                "rpc error on getSignaturesForAddress: status={}, code={}, message={}",
+                "rpc error on getSignaturesForAddress: status={}, code={}, message={}, rate_limited={}",
                 status,
                 rpc_error.code,
-                rpc_error.message
+                rpc_error.message,
+                rate_limited
             ));
         }
 
@@ -109,6 +111,7 @@ impl HeliusApi {
         let dsrlz_response = RpcResponse { result };
         let response_len = dsrlz_response.result.len();
         debug!(
+            target: "client",
             status = ?status,
             response_len,
             elapsed_ms = request_started.elapsed().as_millis(),
@@ -120,13 +123,13 @@ impl HeliusApi {
             .last()
             .map(|last| last.signature.clone());
         if last_signatures.is_none() {
-            warn!("Empty signatures response");
+            warn!(target: "client", "Empty signatures response");
         }
 
         Ok((dsrlz_response, last_signatures))
     }
 
-    #[instrument(skip(self, signatures), fields(total = signatures.len()))]
+    #[instrument(target = "client", skip(self, signatures), fields(total = signatures.len()))]
     pub async fn get_transaction(&self, signatures: Vec<String>) -> Result<TransactionBatch> {
         let mut responses_res: Vec<TransactionResult> = Vec::new();
         let mut processed_signatures: Vec<String> = Vec::new();
@@ -134,11 +137,15 @@ impl HeliusApi {
         let mut errors: Vec<TransactionFetchError> = Vec::new();
 
         for (chunk_index, signatures) in signatures.chunks(10).enumerate() {
-            let chunk_span =
-                tracing::info_span!("tx_chunk", chunk_index, chunk_len = signatures.len());
+            let chunk_span = tracing::info_span!(
+                target: "client",
+                "tx_chunk",
+                chunk_index,
+                chunk_len = signatures.len()
+            );
             let _chunk_guard = chunk_span.enter();
             let chunk_started = Instant::now();
-            debug!("Fetching transaction chunk");
+            debug!(target: "client", "Fetching transaction chunk");
 
             let chunk_responses = stream::iter(signatures.iter().cloned())
                 .map(
@@ -174,6 +181,7 @@ impl HeliusApi {
             }
 
             info!(
+                target: "client",
                 chunk_success,
                 chunk_failed,
                 total_success = responses_res.len(),
@@ -184,10 +192,12 @@ impl HeliusApi {
 
             if let Some(sample_error) = first_chunk_error {
                 warn!(
+                    target: "client",
                     signature = %mask_addr(&sample_error.signature),
                     status_code = ?sample_error.status_code,
                     rpc_code = ?sample_error.rpc_code,
                     message = %sample_error.message,
+                    rate_limited = sample_error.is_rate_limited(),
                     "Transaction chunk completed with failures"
                 );
             }
@@ -202,18 +212,21 @@ impl HeliusApi {
             total_token_changes += res.token_transfer_changes.len();
         });
         debug!(
+            target: "client",
             total_transfers,
             total_token_changes, "Calculated balance changes"
         );
 
         if let Some(first_error) = errors.first() {
             warn!(
+                target: "client",
                 failed_total = errors.len(),
                 success_total = responses_res.len(),
                 signature = %mask_addr(&first_error.signature),
                 status_code = ?first_error.status_code,
                 rpc_code = ?first_error.rpc_code,
                 message = %first_error.message,
+                rate_limited = first_error.is_rate_limited(),
                 "Some transaction requests failed; signatures left unprocessed for retry"
             );
         }
@@ -344,6 +357,7 @@ impl HeliusApi {
         };
 
         debug!(
+            target: "client",
             status = ?status,
             elapsed_ms = request_started.elapsed().as_millis(),
             "Transaction response received"

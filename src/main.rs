@@ -36,13 +36,12 @@ async fn main() -> Result<()> {
     // Ловит запросы с фронта (запускаем в отдельной задаче, чтобы не блокировать воркеров)
     let server_handle = tokio::spawn(create_server(app_state.database.pool.clone()));
 
-    let worker_handles: Vec<JoinHandle<Result<()>>> = (1..5)
-        .into_iter()
-        .map(|worker_id| {
-            let state = Arc::clone(&app_state);
-            tokio::spawn(worker_loop(state, worker_id))
-        })
-        .collect();
+    let mut worker_handles: Vec<JoinHandle<Result<()>>> = Vec::new();
+    for worker_id in 1..5 {
+        let state = Arc::clone(&app_state);
+        worker_handles.push(tokio::spawn(worker_loop(state, worker_id)));
+        sleep(Duration::from_millis(700)).await;
+    }
 
     // Ждём завершения всех задач (сервер + воркеры)
     tokio::select! {
@@ -57,6 +56,7 @@ async fn main() -> Result<()> {
     Ok(())
 }
 
+#[tracing::instrument(skip(app_state))]
 async fn worker_loop(app_state: Arc<AppState>, worker_id: u32) -> Result<()> {
     let mut worker_backoff = WorkerBackoff::new(200, 2000, 0.5);
     loop {
@@ -85,6 +85,7 @@ async fn worker_loop(app_state: Arc<AppState>, worker_id: u32) -> Result<()> {
 
         let job_id = claimed_job.job_id;
         let address = claimed_job.address;
+        // вот тут сразу добавить прокеру + удаление из бд
 
         let processing_result: Result<()> = async {
             fetching_signatures(&app_state, &address).await?;
