@@ -26,10 +26,7 @@ pub struct RpcEnvelope<T> {
 }
 
 #[derive(Deserialize, Debug, Clone)]
-pub struct Rально:
-
-онлайн через Loki/ELK (worker_id=2)
-локально: jq/rg по полю worker_id в outppcError {
+pub struct RpcError {
     pub code: i64,
     pub message: String,
 

@@ -2,7 +2,7 @@ use anyhow::Result;
 use std::{sync::Arc, time::Instant};
 use tokio::task::JoinHandle;
 use tokio::time::{Duration, sleep};
-use tracing::{debug, info, warn};
+use tracing::{Instrument, debug, info, warn};
 
 mod requests;
 use requests::*;
@@ -85,7 +85,6 @@ async fn worker_loop(app_state: Arc<AppState>, worker_id: u32) -> Result<()> {
 
         let job_id = claimed_job.job_id;
         let address = claimed_job.address;
-        // вот тут сразу добавить прокеру + удаление из бд
 
         let processing_result: Result<()> = async {
             fetching_signatures(&app_state, &address).await?;
@@ -136,52 +135,55 @@ async fn worker_loop(app_state: Arc<AppState>, worker_id: u32) -> Result<()> {
 async fn fetching_signatures(app_state: &AppState, address: &str) -> Result<()> {
     let database = &app_state.database;
     let helius_api = &app_state.helius_api;
-
-    let mut cur_last_signature: Option<String> = None;
-    let mut sum: usize = 0;
     let masked_address = logging::mask_addr(address);
     let run_span = tracing::info_span!("indexer_run", address = %masked_address);
-    let _run_guard = run_span.enter();
-    info!("Fetching signatures started");
 
-    let sync_started = Instant::now();
-    loop {
-        // Сбор всех подписей
-        debug!(before = ?cur_last_signature, "Fetching signatures page");
-        let page_started = Instant::now();
-        let (response, last_signature) = helius_api
-            .get_signatures(address, cur_last_signature)
-            .await?;
+    async {
+        let mut cur_last_signature: Option<String> = None;
+        let mut sum: usize = 0;
+        info!("Fetching signatures started");
 
-        let res_len = response.result.len();
-        sum += res_len;
+        let sync_started = Instant::now();
+        loop {
+            // Сбор всех подписей
+            debug!(before = ?cur_last_signature, "Fetching signatures page");
+            let page_started = Instant::now();
+            let (response, last_signature) = helius_api
+                .get_signatures(address, cur_last_signature)
+                .await?;
 
-        info!(
-            page_len = res_len,
-            total = sum,
-            elapsed_ms = page_started.elapsed().as_millis(),
-            "Signatures page received"
-        );
+            let res_len = response.result.len();
+            sum += res_len;
 
-        let inserted = database.write_signatures(&response, address).await?;
-        debug!(inserted, "Signatures saved");
+            info!(
+                page_len = res_len,
+                total = sum,
+                elapsed_ms = page_started.elapsed().as_millis(),
+                "Signatures page received"
+            );
 
-        // решить что как правильно поступать с проверкой; для тестов, не больше 2000
-        if last_signature.is_none() || res_len < 1000 || sum >= 2000 {
-            info!("No more signatures available");
-            break;
+            let inserted = database.write_signatures(&response, address).await?;
+            debug!(inserted, "Signatures saved");
+
+            // решить что как правильно поступать с проверкой; для тестов, не больше 2000
+            if last_signature.is_none() || res_len < 1000 || sum >= 2000 {
+                info!("No more signatures available");
+                break;
+            }
+
+            cur_last_signature = last_signature;
         }
 
-        cur_last_signature = last_signature;
+        info!(
+            total = sum,
+            elapsed_ms = sync_started.elapsed().as_millis(),
+            "Signature sync finished"
+        );
+
+        Ok(())
     }
-
-    info!(
-        total = sum,
-        elapsed_ms = sync_started.elapsed().as_millis(),
-        "Signature sync finished"
-    );
-
-    Ok(())
+    .instrument(run_span)
+    .await
 }
 
 async fn fetched_unprocessed_signatures(app_state: &AppState, address: &str) -> Result<()> {

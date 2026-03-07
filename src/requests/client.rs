@@ -4,19 +4,18 @@ use anyhow::{Result, anyhow};
 use futures::{StreamExt, stream};
 use reqwest::Client;
 use serde_json::{Value, json};
-use tokio::time::{Duration, sleep};
-use tracing::{debug, info, instrument, warn};
+use tokio::time::sleep;
+use tracing::{Instrument, debug, info, instrument, warn};
 use governor::{
     clock::DefaultClock,
     middleware::NoOpMiddleware,
     state::{InMemoryState, NotKeyed},
     Quota, RateLimiter,
 };
-use nonzero_ext::nonzero;
-use std::sync::Arc;         
-use tokio::sync::Semaphore;
+use std::sync::Arc;
+use tokio::sync::{Mutex, Semaphore};
 
-
+use crate::backoff::WorkerBackoff;
 use crate::logging::mask_addr;
 
 use super::types::*;
@@ -37,6 +36,7 @@ pub struct HeliusApi {
     client: Client,
     rate_limiter: Arc<GlobalRateLimiter>, // Лимитер RPS
     semaphore: Arc<Semaphore>, // Ограничения одновременных запросов
+    rate_limit_backoff: Arc<Mutex<WorkerBackoff>>,
 }
 
 impl HeliusApi {
@@ -44,12 +44,20 @@ impl HeliusApi {
         let quota = Quota::per_second(std::num::NonZeroU32::new(rps).unwrap()); 
         let rate_limiter = Arc::new(RateLimiter::direct(quota));
         let semaphore = Arc::new(Semaphore::new(max_concurrent));
+        let rate_limit_backoff = Arc::new(Mutex::new(WorkerBackoff::new(500, 10_000, 2.0)));
 
         let api = dotenvy::var("api").expect("api не найден в .env");
         let client = Client::new();
         let url = String::from("https://mainnet.helius-rpc.com/?api-key=");
 
-        HeliusApi { api, url, client, rate_limiter, semaphore }
+        HeliusApi {
+            api,
+            url,
+            client,
+            rate_limiter,
+            semaphore,
+            rate_limit_backoff,
+        }
     }
 
     #[instrument(target = "client", skip(self), fields(address = %mask_addr(adress), before = ?last_signature))]
@@ -143,64 +151,67 @@ impl HeliusApi {
                 chunk_index,
                 chunk_len = signatures.len()
             );
-            let _chunk_guard = chunk_span.enter();
-            let chunk_started = Instant::now();
-            debug!(target: "client", "Fetching transaction chunk");
+            async {
+                let chunk_started = Instant::now();
+                debug!(target: "client", "Fetching transaction chunk");
 
-            let chunk_responses = stream::iter(signatures.iter().cloned())
-                .map(
-                    |signature| async move { self.fetch_transaction_by_signature(signature).await },
-                )
-                .buffered(5)
-                .collect::<Vec<_>>()
-                .await;
+                let chunk_responses = stream::iter(signatures.iter().cloned())
+                    .map(|signature| async move {
+                        self.fetch_transaction_by_signature(signature).await
+                    })
+                    .buffered(3)
+                    .collect::<Vec<_>>()
+                    .await;
 
-            let mut chunk_success = 0usize;
-            let mut chunk_failed = 0usize;
-            let mut first_chunk_error: Option<TransactionFetchError> = None;
+                let mut chunk_success = 0usize;
+                let mut chunk_failed = 0usize;
+                let mut first_chunk_error: Option<TransactionFetchError> = None;
 
-            for response in chunk_responses {
-                match response {
-                    TransactionFetchOutcome::Success {
-                        signature,
-                        transaction,
-                    } => {
-                        chunk_success += 1;
-                        processed_signatures.push(signature);
-                        responses_res.push(transaction);
-                    }
-                    TransactionFetchOutcome::Failed(error) => {
-                        chunk_failed += 1;
-                        if first_chunk_error.is_none() {
-                            first_chunk_error = Some(error.clone());
+                for response in chunk_responses {
+                    match response {
+                        TransactionFetchOutcome::Success {
+                            signature,
+                            transaction,
+                        } => {
+                            chunk_success += 1;
+                            processed_signatures.push(signature);
+                            responses_res.push(transaction);
                         }
-                        failed_signatures.push(error.signature.clone());
-                        errors.push(error);
+                        TransactionFetchOutcome::Failed(error) => {
+                            chunk_failed += 1;
+                            if first_chunk_error.is_none() {
+                                first_chunk_error = Some(error.clone());
+                            }
+                            failed_signatures.push(error.signature.clone());
+                            errors.push(error);
+                        }
                     }
                 }
-            }
 
-            info!(
-                target: "client",
-                chunk_success,
-                chunk_failed,
-                total_success = responses_res.len(),
-                total_failed = failed_signatures.len(),
-                elapsed_ms = chunk_started.elapsed().as_millis(),
-                "Transactions chunk received"
-            );
-
-            if let Some(sample_error) = first_chunk_error {
-                warn!(
+                info!(
                     target: "client",
-                    signature = %mask_addr(&sample_error.signature),
-                    status_code = ?sample_error.status_code,
-                    rpc_code = ?sample_error.rpc_code,
-                    message = %sample_error.message,
-                    rate_limited = sample_error.is_rate_limited(),
-                    "Transaction chunk completed with failures"
+                    chunk_success,
+                    chunk_failed,
+                    total_success = responses_res.len(),
+                    total_failed = failed_signatures.len(),
+                    elapsed_ms = chunk_started.elapsed().as_millis(),
+                    "Transactions chunk received"
                 );
+
+                if let Some(sample_error) = first_chunk_error {
+                    warn!(
+                        target: "client",
+                        signature = %mask_addr(&sample_error.signature),
+                        status_code = ?sample_error.status_code,
+                        rpc_code = ?sample_error.rpc_code,
+                        message = %sample_error.message,
+                        rate_limited = sample_error.is_rate_limited(),
+                        "Transaction chunk completed with failures"
+                    );
+                }
             }
+            .instrument(chunk_span)
+            .await;
         }
 
         let mut total_transfers = 0usize;
@@ -239,17 +250,42 @@ impl HeliusApi {
         })
     }
 
+    async fn failed_with_rate_limit_sleep(
+        &self,
+        error: TransactionFetchError,
+    ) -> TransactionFetchOutcome {
+        if error.is_rate_limited() {
+            let delay = {
+                let mut backoff = self.rate_limit_backoff.lock().await;
+                backoff.step_and_get_sleep_duration()
+            };
+            warn!(
+                target: "client",
+                signature = %mask_addr(&error.signature),
+                status_code = ?error.status_code,
+                rpc_code = ?error.rpc_code,
+                sleep_ms = delay.as_millis(),
+                "Rate limit detected, sleeping after 429"
+            );
+            sleep(delay).await;
+        }
+
+        TransactionFetchOutcome::Failed(error)
+    }
+
     async fn fetch_transaction_by_signature(&self, signature: String) -> TransactionFetchOutcome {
         self.rate_limiter.until_ready().await;
         let _permit = match self.semaphore.acquire().await {
             Ok(permit) => permit,
             Err(error) => {
-                return TransactionFetchOutcome::Failed(TransactionFetchError {
-                    signature,
-                    status_code: None,
-                    rpc_code: None,
-                    message: format!("failed to acquire semaphore permit: {}", error),
-                });
+                return self
+                    .failed_with_rate_limit_sleep(TransactionFetchError {
+                        signature,
+                        status_code: None,
+                        rpc_code: None,
+                        message: format!("failed to acquire semaphore permit: {}", error),
+                    })
+                    .await;
             }
         };
 
@@ -276,12 +312,14 @@ impl HeliusApi {
         {
             Ok(response) => response,
             Err(error) => {
-                return TransactionFetchOutcome::Failed(TransactionFetchError {
-                    signature,
-                    status_code: None,
-                    rpc_code: None,
-                    message: format!("request failed: {}", error),
-                });
+                return self
+                    .failed_with_rate_limit_sleep(TransactionFetchError {
+                        signature,
+                        status_code: None,
+                        rpc_code: None,
+                        message: format!("request failed: {}", error),
+                    })
+                    .await;
             }
         };
 
@@ -289,70 +327,82 @@ impl HeliusApi {
         let body_text = match response.text().await {
             Ok(body_text) => body_text,
             Err(error) => {
-                return TransactionFetchOutcome::Failed(TransactionFetchError {
-                    signature,
-                    status_code: Some(status.as_u16()),
-                    rpc_code: None,
-                    message: format!("failed to read response body: {}", error),
-                });
+                return self
+                    .failed_with_rate_limit_sleep(TransactionFetchError {
+                        signature,
+                        status_code: Some(status.as_u16()),
+                        rpc_code: None,
+                        message: format!("failed to read response body: {}", error),
+                    })
+                    .await;
             }
         };
 
         let rpc_response: RpcEnvelope<Value> = match serde_json::from_str(&body_text) {
             Ok(rpc_response) => rpc_response,
             Err(error) => {
-                return TransactionFetchOutcome::Failed(TransactionFetchError {
-                    signature,
-                    status_code: Some(status.as_u16()),
-                    rpc_code: None,
-                    message: format!(
-                        "failed to decode rpc envelope: {}; body={}",
-                        error,
-                        Self::body_snippet(&body_text)
-                    ),
-                });
+                return self
+                    .failed_with_rate_limit_sleep(TransactionFetchError {
+                        signature,
+                        status_code: Some(status.as_u16()),
+                        rpc_code: None,
+                        message: format!(
+                            "failed to decode rpc envelope: {}; body={}",
+                            error,
+                            Self::body_snippet(&body_text)
+                        ),
+                    })
+                    .await;
             }
         };
 
         if let Some(rpc_error) = rpc_response.error {
-            return TransactionFetchOutcome::Failed(TransactionFetchError {
-                signature,
-                status_code: Some(status.as_u16()),
-                rpc_code: Some(rpc_error.code),
-                message: rpc_error.message,
-            });
+            return self
+                .failed_with_rate_limit_sleep(TransactionFetchError {
+                    signature,
+                    status_code: Some(status.as_u16()),
+                    rpc_code: Some(rpc_error.code),
+                    message: rpc_error.message,
+                })
+                .await;
         }
 
         let result_value = match rpc_response.result {
             Some(value) => value,
             None => {
-                return TransactionFetchOutcome::Failed(TransactionFetchError {
-                    signature,
-                    status_code: Some(status.as_u16()),
-                    rpc_code: None,
-                    message: String::from("missing result field in rpc response"),
-                });
+                return self
+                    .failed_with_rate_limit_sleep(TransactionFetchError {
+                        signature,
+                        status_code: Some(status.as_u16()),
+                        rpc_code: None,
+                        message: String::from("missing result field in rpc response"),
+                    })
+                    .await;
             }
         };
 
         if result_value.is_null() {
-            return TransactionFetchOutcome::Failed(TransactionFetchError {
-                signature,
-                status_code: Some(status.as_u16()),
-                rpc_code: None,
-                message: String::from("rpc result is null"),
-            });
+            return self
+                .failed_with_rate_limit_sleep(TransactionFetchError {
+                    signature,
+                    status_code: Some(status.as_u16()),
+                    rpc_code: None,
+                    message: String::from("rpc result is null"),
+                })
+                .await;
         }
 
         let tx_info: TransactionInfo = match serde_json::from_value(result_value) {
             Ok(tx_info) => tx_info,
             Err(error) => {
-                return TransactionFetchOutcome::Failed(TransactionFetchError {
-                    signature,
-                    status_code: Some(status.as_u16()),
-                    rpc_code: None,
-                    message: format!("failed to decode transaction result: {}", error),
-                });
+                return self
+                    .failed_with_rate_limit_sleep(TransactionFetchError {
+                        signature,
+                        status_code: Some(status.as_u16()),
+                        rpc_code: None,
+                        message: format!("failed to decode transaction result: {}", error),
+                    })
+                    .await;
             }
         };
 
@@ -362,6 +412,10 @@ impl HeliusApi {
             elapsed_ms = request_started.elapsed().as_millis(),
             "Transaction response received"
         );
+        {
+            let mut backoff = self.rate_limit_backoff.lock().await;
+            backoff.reset();
+        }
 
         TransactionFetchOutcome::Success {
             signature,
