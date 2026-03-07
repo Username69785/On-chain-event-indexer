@@ -124,8 +124,8 @@ input:focus {
     box-shadow: 0 0 0 4px rgba(20, 241, 149, 0.1);
 }
 
-/* Button */
-button {
+/* Submit Button */
+#submitBtn {
     width: 100%;
     padding: 16px;
     background: linear-gradient(135deg, var(--accent-primary), #0fa37f);
@@ -144,7 +144,7 @@ button {
     overflow: hidden;
 }
 
-button::before {
+#submitBtn::before {
     content: '';
     position: absolute;
     top: 0;
@@ -156,25 +156,78 @@ button::before {
     transition: opacity 0.3s ease;
 }
 
-button:hover {
+#submitBtn:hover {
     transform: translateY(-2px);
     box-shadow: 0 10px 20px rgba(20, 241, 149, 0.3);
 }
 
-button:hover::before {
+#submitBtn:hover::before {
     opacity: 1;
 }
 
-button:active {
+#submitBtn:active {
     transform: translateY(0);
 }
 
-button svg {
+#submitBtn svg {
     transition: transform 0.3s ease;
 }
 
-button:hover svg {
+#submitBtn:hover svg {
     transform: translateX(4px);
+}
+
+/* Filters Container */
+.filters-container {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    margin-bottom: 8px;
+}
+
+.filter-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.filter-group label {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    font-weight: 500;
+}
+
+.pill-group {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.pill {
+    flex: 1;
+    padding: 8px 12px;
+    background: var(--input-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-align: center;
+    outline: none;
+}
+
+.pill:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: var(--text-primary);
+}
+
+.pill.active {
+    background: rgba(20, 241, 149, 0.15);
+    border-color: rgba(20, 241, 149, 0.5);
+    color: var(--accent-primary);
+    box-shadow: 0 0 10px rgba(20, 241, 149, 0.1);
 }
 
 /* Status Message */

@@ -16,6 +16,9 @@ use crate::logging::mask_addr;
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Address {
     pub address: String,
+    pub time: Option<u32>,
+    #[serde(rename = "txLimit")]
+    pub tx_limit: Option<u32>,
 }
 
 #[derive(Serialize, FromRow)]

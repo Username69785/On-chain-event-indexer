@@ -6,6 +6,28 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnText = submitBtn.querySelector('span');
     let isLoading = false;
 
+    // Filter logic
+    let filters = {
+        time: 24, // default 24H
+        txLimit: 1000 // default 1000
+    };
+
+    const setupPills = (containerId, filterKey) => {
+        const container = document.getElementById(containerId);
+        if (!container) return;
+        const pills = container.querySelectorAll('.pill');
+        pills.forEach(pill => {
+            pill.addEventListener('click', () => {
+                pills.forEach(p => p.classList.remove('active'));
+                pill.classList.add('active');
+                filters[filterKey] = parseInt(pill.dataset.value, 10);
+            });
+        });
+    };
+
+    setupPills('timeFilters', 'time');
+    setupPills('txFilters', 'txLimit');
+
     const handleAnalyze = async (e) => {
         e?.preventDefault();
         e?.stopPropagation();
@@ -42,7 +64,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({ address }),
+                body: JSON.stringify({ 
+                    address,
+                    time: filters.time,
+                    txLimit: filters.txLimit
+                }),
             });
 
             if (!response.ok) {

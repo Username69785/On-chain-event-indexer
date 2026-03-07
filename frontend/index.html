@@ -28,6 +28,28 @@
                     >
                     <div class="input-focus-border"></div>
                 </div>
+
+                <div class="filters-container">
+                    <div class="filter-group">
+                        <label>Time Range</label>
+                        <div class="pill-group" id="timeFilters">
+                            <button type="button" class="pill" data-value="1">1H</button>
+                            <button type="button" class="pill" data-value="8">8H</button>
+                            <button type="button" class="pill active" data-value="24">24H</button>
+                            <button type="button" class="pill" data-value="48">48H</button>
+                        </div>
+                    </div>
+                    
+                    <div class="filter-group">
+                        <label>Max Transactions</label>
+                        <div class="pill-group" id="txFilters">
+                            <button type="button" class="pill active" data-value="1000">1000</button>
+                            <button type="button" class="pill" data-value="2000">2000</button>
+                            <button type="button" class="pill" data-value="5000">5000</button>
+                        </div>
+                    </div>
+                </div>
+
                 <button type="button" id="submitBtn">
                     <span>Analyze</span>
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
