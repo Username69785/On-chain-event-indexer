@@ -1,4 +1,5 @@
 use anyhow::Result;
+use bigdecimal::ToPrimitive;
 use std::{sync::Arc, time::Instant};
 use tokio::task::JoinHandle;
 use tokio::time::{Duration, sleep};
@@ -89,7 +90,7 @@ async fn worker_loop(app_state: Arc<AppState>, worker_id: u32) -> Result<()> {
         let tx_limit = claimed_job.tx_limit;
 
         let processing_result: Result<()> = async {
-            fetching_signatures(&app_state, &address).await?;
+            fetching_signatures(&app_state, &address, tx_limit.to_usize().unwrap_or(1000)).await?;
             fetched_unprocessed_signatures(&app_state, &address).await?;
             Ok(())
         }
@@ -134,7 +135,7 @@ async fn worker_loop(app_state: Arc<AppState>, worker_id: u32) -> Result<()> {
     }
 }
 
-async fn fetching_signatures(app_state: &AppState, address: &str) -> Result<()> {
+async fn fetching_signatures(app_state: &AppState, address: &str, tx_limit: usize) -> Result<()> {
     let database = &app_state.database;
     let helius_api = &app_state.helius_api;
     let masked_address = logging::mask_addr(address);
@@ -167,7 +168,7 @@ async fn fetching_signatures(app_state: &AppState, address: &str) -> Result<()> 
             let inserted = database.write_signatures(&response, address).await?;
             debug!(inserted, "Signatures saved");
 
-            if last_signature.is_none() || res_len < 1000 || sum >= 2000 {
+            if last_signature.is_none() || res_len < 1000 || sum >= tx_limit {
                 info!("No more signatures available");
                 break;
             }
