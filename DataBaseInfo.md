@@ -68,7 +68,9 @@
 | :--- | :--- | :--- | :---: | :--- |
 | 1 | `id` | `bigserial` | [v] | `nextval('processing_data_id_seq'::regclass)` |
 | 2 | `address` | `text` | [v] | |
-| 3 | `day` | `date` | [v] | |
-| 4 | `status` | `text` | [v] | |
+| 3 | `status` | `text` | [v] | |
+| 4 | `worker_id` | `int2` | [] | `` |
 | 5 | `created_at` | `timestamptz` | [v] | `now()` |
 | 6 | `updated_at` | `timestamptz` | [v] | `now()` |
+| 7 | `tx_limit` | `int2` | [v] | `` |
+| 8 | `requested_hours` | `int2` | [v] | `` |

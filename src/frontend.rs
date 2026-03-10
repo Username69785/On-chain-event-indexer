@@ -16,9 +16,9 @@ use crate::logging::mask_addr;
 #[derive(Debug, Deserialize, Serialize)]
 pub struct Address {
     pub address: String,
-    pub time: Option<u32>,
+    pub requested_hours: i16,
     #[serde(rename = "txLimit")]
-    pub tx_limit: Option<u32>,
+    pub tx_limit: i16,
 }
 
 #[derive(Serialize, FromRow)]
@@ -67,8 +67,11 @@ pub async fn address_processing(
         "Received address processing request"
     );
 
-    let query = "INSERT INTO processing_data (address, day, status, created_at, updated_at)
-                 SELECT $1, CURRENT_DATE, 'pending', NOW(), NOW()
+    let requested_hours = payload.requested_hours;
+    let tx_limit = payload.tx_limit;
+
+    let query = "INSERT INTO processing_data (address, status, created_at, updated_at, tx_limit, requested_hours)
+                 SELECT $1, 'pending', NOW(), NOW(), $2, $3
                  WHERE NOT EXISTS (
                      SELECT 1 FROM processing_data WHERE address = $1
                  )
@@ -76,24 +79,26 @@ pub async fn address_processing(
 
     match sqlx::query(query)
         .bind(&payload.address)
+        .bind(tx_limit)
+        .bind(requested_hours)
         .fetch_optional(&pool)
         .await
     {
         Ok(Some(row)) => {
             let id: i64 = row.get("id");
             info!(job_id = id, "Processing job created");
-            Json(json!({ "status": "ok", "job_id": id }))
+            Json(json!({ "status": "ok", "job_id": id })).into_response()
         }
         Ok(None) => {
             info!(
                 address = %mask_addr(&payload.address),
                 "Processing job skipped: address already exists"
             );
-            Json(json!({ "status": "ok", "message": "address already exists" }))
+            Json(json!({ "status": "ok", "message": "address already exists" })).into_response()
         }
         Err(e) => {
             error!(error = %e, "Failed to create processing job");
-            Json(json!({ "status": "error", "message": e.to_string() }))
+            Json(json!({ "status": "error", "message": e.to_string() })).into_response()
         }
     }
 }

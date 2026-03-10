@@ -85,6 +85,8 @@ async fn worker_loop(app_state: Arc<AppState>, worker_id: u32) -> Result<()> {
 
         let job_id = claimed_job.job_id;
         let address = claimed_job.address;
+        let requested_hours = claimed_job.requested_hours;
+        let tx_limit = claimed_job.tx_limit;
 
         let processing_result: Result<()> = async {
             fetching_signatures(&app_state, &address).await?;
@@ -165,7 +167,6 @@ async fn fetching_signatures(app_state: &AppState, address: &str) -> Result<()> 
             let inserted = database.write_signatures(&response, address).await?;
             debug!(inserted, "Signatures saved");
 
-            // решить что как правильно поступать с проверкой; для тестов, не больше 2000
             if last_signature.is_none() || res_len < 1000 || sum >= 2000 {
                 info!("No more signatures available");
                 break;

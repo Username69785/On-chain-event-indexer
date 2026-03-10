@@ -21,6 +21,8 @@ pub struct SaveStats {
 pub struct ClaimedJob {
     pub job_id: i64,
     pub address: String,
+    pub requested_hours: i16,
+    pub tx_limit: i16,
 }
 
 impl Database {
@@ -311,7 +313,7 @@ impl Database {
             WITH next_job AS (
                 SELECT id
                 FROM processing_data pd
-                WHERE status = 'pending'
+                WHERE status IN ('pending', 'indexing')
                 ORDER BY created_at ASC
                 LIMIT 1
                 FOR UPDATE SKIP LOCKED
@@ -322,7 +324,7 @@ impl Database {
                 updated_at = now()
             FROM next_job
             WHERE pd.id = next_job.id
-            RETURNING pd.id AS job_id, pd.address
+            RETURNING pd.id AS job_id, pd.address, pd.requested_hours, pd.tx_limit
             "#,
         )
         .bind(worker_id)
