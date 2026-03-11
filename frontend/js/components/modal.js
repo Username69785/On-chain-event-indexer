@@ -1,8 +1,10 @@
 import { state, actions } from '../state.js';
-import { isAddressLike, validateSolanaAddress, submitAnalyzeRequest } from '../api.js';
+import { isAddressLike, validateSolanaAddress, submitAnalyzeRequest, fetchJobInfo } from '../api.js';
 import { renderSidebar } from './sidebar.js';
 import { renderMainArea } from './mainArea.js';
-import { showStatus } from '../utils.js';
+import { showGlobalToast, showStatus } from '../utils.js';
+
+const POLL_INTERVAL_MS = 5000;
 
 export function initModal() {
     const addAddressBtn = document.getElementById('addAddressBtn');
@@ -91,6 +93,55 @@ export function initModal() {
         }
     };
 
+    const stopPolling = (address) => {
+        actions.clearPollingInterval(address);
+    };
+
+    const syncJobInfo = async (address, jobId) => {
+        const currentItem = state.addresses.find(item => item.address === address);
+        if (!currentItem) {
+            stopPolling(address);
+            return;
+        }
+
+        try {
+            const jobInfo = await fetchJobInfo(jobId);
+            const previousStatus = currentItem.status;
+
+            actions.addOrUpdateAddress(address, {
+                jobId,
+                status: jobInfo.status,
+                totalTransactions: jobInfo.total_transactions ?? 0,
+                processedTransactions: jobInfo.processed_transactions ?? 0,
+                remainingTransactions: jobInfo.remaining_transactions ?? 0,
+                updatedAt: jobInfo.updated_at ?? null
+            });
+
+            renderSidebar();
+            renderMainArea();
+
+            if (previousStatus !== jobInfo.status) {
+                showGlobalToast(`Status changed: ${jobInfo.status}`);
+            }
+
+            if (jobInfo.status === 'ready' || jobInfo.status === 'error') {
+                stopPolling(address);
+            }
+        } catch (error) {
+            console.error('Polling error:', error);
+        }
+    };
+
+    const startPolling = (address, jobId) => {
+        stopPolling(address);
+        const intervalId = window.setInterval(() => {
+            void syncJobInfo(address, jobId);
+        }, POLL_INTERVAL_MS);
+
+        actions.setPollingInterval(address, intervalId);
+        void syncJobInfo(address, jobId);
+    };
+
     const handleAnalyze = async (e) => {
         e?.preventDefault();
         e?.stopPropagation();
@@ -118,15 +169,25 @@ export function initModal() {
         setLoadingUI(true);
 
         try {
-            actions.addOrUpdateAddress(address, 'indexing');
+            actions.addOrUpdateAddress(address, {
+                status: 'pending',
+                totalTransactions: 0,
+                processedTransactions: 0,
+                remainingTransactions: 0
+            });
             renderSidebar();
             renderMainArea();
-            
-            showStatus(`Successfully started indexing for: ${address.slice(0, 4)}...${address.slice(-4)}`, 'success');
-            setTimeout(() => closeModal(), 1000);
 
             const result = await submitAnalyzeRequest(address, state.filters);
             console.log('Server response:', result);
+
+            if (result.job_id) {
+                actions.addOrUpdateAddress(address, { jobId: result.job_id });
+                startPolling(address, result.job_id);
+            }
+
+            showStatus(`Successfully started indexing for: ${address.slice(0, 4)}...${address.slice(-4)}`, 'success');
+            setTimeout(() => closeModal(), 1000);
         } catch (error) {
             console.error('Error:', error);
             actions.addOrUpdateAddress(address, 'error');

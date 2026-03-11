@@ -51,3 +51,26 @@ export async function submitAnalyzeRequest(address, filters) {
 
     return await response.json();
 }
+
+export async function fetchJobInfo(jobId) {
+    const response = await fetch(`http://127.0.0.1:8080/jobs/${jobId}`);
+
+    if (!response.ok) {
+        const contentType = response.headers.get('content-type') || '';
+        let errorMessage = 'Failed to fetch job info';
+
+        if (contentType.includes('application/json')) {
+            const errorData = await response.json().catch(() => ({}));
+            errorMessage = errorData.message || errorData.error || errorMessage;
+        } else {
+            const errorText = await response.text().catch(() => '');
+            if (errorText) {
+                errorMessage = errorText;
+            }
+        }
+
+        throw new Error(errorMessage);
+    }
+
+    return await response.json();
+}

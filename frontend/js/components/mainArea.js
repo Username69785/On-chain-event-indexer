@@ -35,6 +35,9 @@ export function renderMainArea() {
     if (!currentItem) return;
     
     const shortAddr = `${currentItem.address.slice(0, 4)}...${currentItem.address.slice(-4)}`;
+    const totalTransactions = currentItem.totalTransactions ?? 0;
+    const processedTransactions = currentItem.processedTransactions ?? 0;
+    const remainingTransactions = currentItem.remainingTransactions ?? 0;
     
     mainContent.innerHTML = `
         <div class="active-header" style="display:flex; flex-direction:column; margin-bottom:24px;">
@@ -65,8 +68,11 @@ export function renderMainArea() {
         </div>
         
         <div style="display: flex; flex-direction: column; gap: 24px;">
-            <div class="card glass-effect" style="padding: 24px; border-radius: 16px; flex: 1; display:flex; justify-content:center; align-items:center; min-height: 200px;">
-                <p style="color: var(--text-secondary);">Analytics and charts will be displayed here...</p>
+            <div class="card glass-effect" style="padding: 24px; border-radius: 16px; flex: 1; min-height: 200px;">
+                <p style="color: var(--text-secondary); margin-bottom: 12px;">Total transactions: ${totalTransactions}</p>
+                <p style="color: var(--text-secondary); margin-bottom: 12px;">Processed transactions: ${processedTransactions}</p>
+                <p style="color: var(--text-secondary); margin-bottom: 12px;">Unprocessed transactions: ${remainingTransactions}</p>
+                <p style="color: var(--text-secondary); margin-bottom: 0;">Current status: ${currentItem.status}</p>
             </div>
         </div>
     `;
