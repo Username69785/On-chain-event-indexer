@@ -64,17 +64,28 @@ document.addEventListener('DOMContentLoaded', () => {
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({ 
+                body: JSON.stringify({
                     address,
-                    time: filters.time,
+                    requested_hours: filters.time,
                     txLimit: filters.txLimit
                 }),
             });
 
             if (!response.ok) {
-                // Handle non-200 responses
-                const errorData = await response.json().catch(() => ({}));
-                throw new Error(errorData.message || 'Failed to start indexing');
+                const contentType = response.headers.get('content-type') || '';
+                let errorMessage = 'Failed to start indexing';
+
+                if (contentType.includes('application/json')) {
+                    const errorData = await response.json().catch(() => ({}));
+                    errorMessage = errorData.message || errorData.error || errorMessage;
+                } else {
+                    const errorText = await response.text().catch(() => '');
+                    if (errorText) {
+                        errorMessage = errorText;
+                    }
+                }
+
+                throw new Error(errorMessage);
             }
 
             const result = await response.json();
@@ -84,7 +95,7 @@ document.addEventListener('DOMContentLoaded', () => {
             input.value = '';
         } catch (error) {
             console.error('Error:', error);
-            showStatus('An error occurred. Please try again.', 'error');
+            showStatus(error.message || 'An error occurred. Please try again.', 'error');
         } finally {
             setLoading(false);
         }
