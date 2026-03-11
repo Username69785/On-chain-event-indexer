@@ -22,9 +22,12 @@ pub struct Address {
 }
 
 #[derive(Serialize, FromRow)]
-pub struct JobStatus {
+pub struct JobInfo {
     pub status: String,
     pub updated_at: chrono::NaiveDateTime,
+    pub total_transactions: i64,
+    pub processed_transactions: i64,
+    pub remaining_transactions: i64,
 }
 
 pub async fn create_server(pool: PgPool) {
@@ -43,7 +46,7 @@ pub async fn create_server(pool: PgPool) {
     // Создаем роутер
     let app = Router::new()
         .route("/analyze", post(address_processing))
-        .route("/jobs/{id}", get(get_job_status))
+        .route("/jobs/{id}", get(get_job_info))
         .layer(cors)
         .with_state(pool);
 
@@ -103,18 +106,39 @@ pub async fn address_processing(
     }
 }
 
-pub async fn get_job_status(State(pool): State<PgPool>, Path(id): Path<i64>) -> impl IntoResponse {
-    info!(job_id = id, "Received job status request");
-    let query = "SELECT status, updated_at FROM processing_data WHERE id = $1";
+pub async fn get_job_info(State(pool): State<PgPool>, Path(id): Path<i64>) -> impl IntoResponse {
+    info!(job_id = id, "Received job info request");
+    let query = "
+        SELECT
+            pd.status,
+            pd.updated_at,
+            COUNT(s.signature)::bigint AS total_transactions,
+            COUNT(*) FILTER (WHERE s.is_processed = TRUE)::bigint AS processed_transactions,
+            (
+                COUNT(s.signature) - COUNT(*) FILTER (WHERE s.is_processed = TRUE)
+            )::bigint AS remaining_transactions
+        FROM processing_data pd
+        LEFT JOIN signatures s
+            ON s.owner_address = pd.address
+        WHERE pd.id = $1
+        GROUP BY pd.status, pd.updated_at
+    ";
 
-    match sqlx::query_as::<_, JobStatus>(query)
+    match sqlx::query_as::<_, JobInfo>(query)
         .bind(id)
         .fetch_optional(&pool)
         .await
     {
-        Ok(Some(job_status)) => {
-            info!(job_id = id, status = %job_status.status, "Job status returned");
-            Json(job_status).into_response()
+        Ok(Some(job_info)) => {
+            info!(
+                job_id = id,
+                status = %job_info.status,
+                total_transactions = job_info.total_transactions,
+                processed_transactions = job_info.processed_transactions,
+                remaining_transactions = job_info.remaining_transactions,
+                "Job info returned"
+            );
+            Json(job_info).into_response()
         }
         Ok(None) => {
             warn!(job_id = id, "Job not found");
@@ -125,7 +149,7 @@ pub async fn get_job_status(State(pool): State<PgPool>, Path(id): Path<i64>) -> 
                 .into_response()
         }
         Err(e) => {
-            error!(job_id = id, error = %e, "Failed to fetch job status");
+            error!(job_id = id, error = %e, "Failed to fetch job info");
             (
                 axum::http::StatusCode::INTERNAL_SERVER_ERROR,
                 Json(json!({ "error": e.to_string() })),
