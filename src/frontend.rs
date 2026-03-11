@@ -24,7 +24,7 @@ pub struct Address {
 #[derive(Serialize, FromRow)]
 pub struct JobInfo {
     pub status: String,
-    pub updated_at: chrono::NaiveDateTime,
+    pub updated_at: chrono::DateTime<chrono::Utc>,
     pub total_transactions: i64,
     pub processed_transactions: i64,
     pub remaining_transactions: i64,
