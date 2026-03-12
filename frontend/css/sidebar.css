@@ -126,6 +126,10 @@
     opacity: 1;
 }
 
+.address-item:hover .percent-text {
+    opacity: 0;
+}
+
 .address-item:hover {
     background: var(--surface-hover);
 }
@@ -142,19 +146,25 @@
     flex-shrink: 0;
 }
 
+.status-indicator.pending {
+    background: #94A3B8;
+    box-shadow: 0 0 8px rgba(148, 163, 184, 0.4);
+}
+
 .status-indicator.indexing {
-    background: #FFB020;
-    box-shadow: 0 0 8px rgba(255, 176, 32, 0.5);
+    background: var(--accent-primary);
+    box-shadow: 0 0 10px rgba(59, 130, 246, 0.6);
     animation: pulse-status 2s infinite;
 }
 
 .status-indicator.done {
-    background: var(--accent-primary);
-    box-shadow: 0 0 8px rgba(20, 241, 149, 0.5);
+    background: #10B981; /* Emerald 500 */
+    box-shadow: 0 0 10px rgba(16, 185, 129, 0.5);
 }
 
 .status-indicator.error {
     background: #EF4444; /* Red 500 */
+    box-shadow: 0 0 10px rgba(239, 68, 68, 0.5);
 }
 
 .address-text {
