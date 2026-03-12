@@ -1,9 +1,82 @@
 import { state, getters } from '../state.js';
-import { showStatus, showGlobalToast } from '../utils.js';
+import { showGlobalToast } from '../utils.js';
+
+let liveMetricsIntervalId = null;
+
+function formatElapsedTime(startedAt, finishedAt) {
+    if (!startedAt) return '-';
+
+    const elapsedMs = Math.max((finishedAt ?? Date.now()) - startedAt, 0);
+    const totalSeconds = Math.floor(elapsedMs / 1000);
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+
+    if (hours > 0) {
+        return `${hours}h ${minutes}m`;
+    }
+
+    if (minutes > 0) {
+        return `${minutes}m ${seconds}s`;
+    }
+
+    return `${seconds}s`;
+}
+
+function formatSpeed(speedPerSecond, processedTransactions) {
+    if (speedPerSecond > 0) {
+        const roundedSpeed = speedPerSecond >= 10
+            ? Math.round(speedPerSecond)
+            : speedPerSecond.toFixed(1);
+
+        return `${roundedSpeed} tx/s`;
+    }
+
+    return processedTransactions > 0 ? '0 tx/s' : '-';
+}
+
+function formatRemainingTime(remainingTransactions, speedPerSecond) {
+    if (remainingTransactions <= 0) {
+        return '0 min';
+    }
+
+    if (speedPerSecond <= 0) {
+        return '-';
+    }
+
+    const remainingMinutes = Math.max(
+        1,
+        Math.ceil((remainingTransactions / speedPerSecond) / 60)
+    );
+
+    return `${remainingMinutes} min`;
+}
+
+function syncLiveMetricsTimer() {
+    const currentItem = getters.getActiveItem();
+    const shouldUpdateLiveMetrics = Boolean(
+        currentItem &&
+        currentItem.status === 'indexing' &&
+        currentItem.indexingStartedAt &&
+        !currentItem.finishedAt
+    );
+
+    if (shouldUpdateLiveMetrics && !liveMetricsIntervalId) {
+        liveMetricsIntervalId = window.setInterval(() => {
+            renderMainArea();
+        }, 1000);
+    }
+
+    if (!shouldUpdateLiveMetrics && liveMetricsIntervalId) {
+        window.clearInterval(liveMetricsIntervalId);
+        liveMetricsIntervalId = null;
+    }
+}
 
 export function renderMainArea() {
     const mainContent = document.getElementById('mainContent');
     if (!mainContent) return;
+    syncLiveMetricsTimer();
 
     if (!state.activeAddress) {
         mainContent.innerHTML = `
@@ -38,8 +111,12 @@ export function renderMainArea() {
     const totalTransactions = currentItem.totalTransactions ?? 0;
     const processedTransactions = currentItem.processedTransactions ?? 0;
     const remainingTransactions = currentItem.remainingTransactions ?? 0;
+    const speedPerSecond = currentItem.speedPerSecond ?? 0;
     
     const percent = totalTransactions > 0 ? Math.floor((processedTransactions / totalTransactions) * 100) : 0;
+    const speedLabel = formatSpeed(speedPerSecond, processedTransactions);
+    const elapsedLabel = formatElapsedTime(currentItem.indexingStartedAt, currentItem.finishedAt);
+    const remainingTimeLabel = formatRemainingTime(remainingTransactions, speedPerSecond);
 
     mainContent.innerHTML = `
         <div class="active-header" style="display:flex; flex-direction:column; margin-bottom:32px;">
@@ -114,17 +191,17 @@ export function renderMainArea() {
                 <!-- Bottom Level (Stats) -->
                 <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-top: auto;">
                     <div style="display: flex; flex-direction: column; gap: 8px;">
-                        <span style="font-family: var(--font-mono); font-size: 24px; font-weight: 600; color: #F8FAFC; line-height: 1;">-</span>
+                        <span style="font-family: var(--font-mono); font-size: 24px; font-weight: 600; color: #F8FAFC; line-height: 1;">${speedLabel}</span>
                         <span style="color: #94A3B8; font-size: 12px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.06em;">Speed</span>
                     </div>
                     
                     <div style="display: flex; flex-direction: column; gap: 8px;">
-                        <span style="font-family: var(--font-mono); font-size: 24px; font-weight: 600; color: #F8FAFC; line-height: 1;">-</span>
+                        <span style="font-family: var(--font-mono); font-size: 24px; font-weight: 600; color: #F8FAFC; line-height: 1;">${elapsedLabel}</span>
                         <span style="color: #94A3B8; font-size: 12px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.06em;">Elapsed</span>
                     </div>
                     
                     <div style="display: flex; flex-direction: column; gap: 8px;">
-                        <span style="font-family: var(--font-mono); font-size: 24px; font-weight: 600; color: #F8FAFC; line-height: 1;">-</span>
+                        <span style="font-family: var(--font-mono); font-size: 24px; font-weight: 600; color: #F8FAFC; line-height: 1;">${remainingTimeLabel}</span>
                         <span style="color: #94A3B8; font-size: 12px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.06em;">Remaining Time</span>
                     </div>
                 </div>

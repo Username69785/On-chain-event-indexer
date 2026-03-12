@@ -33,6 +33,10 @@ export const actions = {
                 processedTransactions: 0,
                 remainingTransactions: 0,
                 updatedAt: null,
+                indexingStartedAt: null,
+                finishedAt: null,
+                lastPolledAt: null,
+                speedPerSecond: 0,
                 ...patch
             });
         }

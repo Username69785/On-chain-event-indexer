@@ -107,24 +107,56 @@ export function initModal() {
         try {
             const jobInfo = await fetchJobInfo(jobId);
             const previousStatus = currentItem.status;
+            const now = Date.now();
+            const processedTransactions = jobInfo.processed_transactions ?? 0;
+            const remainingTransactions = jobInfo.remaining_transactions ?? 0;
+            const nextStatus = jobInfo.status;
+            const previousProcessedTransactions = currentItem.processedTransactions ?? 0;
+            const previousSpeedPerSecond = currentItem.speedPerSecond ?? 0;
+            const hadIndexingStarted = Boolean(currentItem.indexingStartedAt);
+            const hasPollingBaseline = Boolean(currentItem.lastPolledAt);
 
-            actions.addOrUpdateAddress(address, {
+            let speedPerSecond = 0;
+
+            if ((nextStatus === 'indexing' || nextStatus === 'ready') && hasPollingBaseline) {
+                const processedDelta = Math.max(processedTransactions - previousProcessedTransactions, 0);
+                speedPerSecond = processedDelta / (POLL_INTERVAL_MS / 1000);
+            }
+
+            if ((nextStatus === 'ready' || nextStatus === 'error') && speedPerSecond === 0) {
+                speedPerSecond = previousSpeedPerSecond;
+            }
+
+            const patch = {
                 jobId,
-                status: jobInfo.status,
+                status: nextStatus,
                 totalTransactions: jobInfo.total_transactions ?? 0,
-                processedTransactions: jobInfo.processed_transactions ?? 0,
-                remainingTransactions: jobInfo.remaining_transactions ?? 0,
-                updatedAt: jobInfo.updated_at ?? null
-            });
+                processedTransactions,
+                remainingTransactions,
+                updatedAt: jobInfo.updated_at ?? null,
+                lastPolledAt: now,
+                speedPerSecond
+            };
+
+            if (nextStatus === 'indexing' && !hadIndexingStarted) {
+                patch.indexingStartedAt = now;
+                patch.finishedAt = null;
+            }
+
+            if ((nextStatus === 'ready' || nextStatus === 'error') && currentItem.indexingStartedAt && !currentItem.finishedAt) {
+                patch.finishedAt = now;
+            }
+
+            actions.addOrUpdateAddress(address, patch);
 
             renderSidebar();
             renderMainArea();
 
-            if (previousStatus !== jobInfo.status) {
-                showGlobalToast(`Status changed: ${jobInfo.status}`);
+            if (previousStatus !== nextStatus) {
+                showGlobalToast(`Status changed: ${nextStatus}`);
             }
 
-            if (jobInfo.status === 'ready' || jobInfo.status === 'error') {
+            if (nextStatus === 'ready' || nextStatus === 'error') {
                 stopPolling(address);
             }
         } catch (error) {
@@ -173,7 +205,11 @@ export function initModal() {
                 status: 'pending',
                 totalTransactions: 0,
                 processedTransactions: 0,
-                remainingTransactions: 0
+                remainingTransactions: 0,
+                indexingStartedAt: null,
+                finishedAt: null,
+                lastPolledAt: null,
+                speedPerSecond: 0
             });
             renderSidebar();
             renderMainArea();
