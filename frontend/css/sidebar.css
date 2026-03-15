@@ -147,8 +147,8 @@
 }
 
 .status-indicator.pending {
-    background: #94A3B8;
-    box-shadow: 0 0 8px rgba(148, 163, 184, 0.4);
+    background: #FFFFFF;
+    box-shadow: 0 0 8px rgba(255, 255, 255, 0.4);
 }
 
 .status-indicator.indexing {
@@ -157,6 +157,7 @@
     animation: pulse-status 2s infinite;
 }
 
+.status-indicator.ready,
 .status-indicator.done {
     background: #10B981; /* Emerald 500 */
     box-shadow: 0 0 10px rgba(16, 185, 129, 0.5);

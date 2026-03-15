@@ -63,7 +63,11 @@ function syncLiveMetricsTimer() {
 
     if (shouldUpdateLiveMetrics && !liveMetricsIntervalId) {
         liveMetricsIntervalId = window.setInterval(() => {
-            renderMainArea();
+            const el = document.getElementById('elapsedTimeValue');
+            const item = getters.getActiveItem();
+            if (el && item && item.status === 'indexing') {
+                el.textContent = formatElapsedTime(item.indexingStartedAt, item.finishedAt);
+            }
         }, 1000);
     }
 
@@ -148,7 +152,7 @@ export function renderMainArea() {
         
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
             <!-- Left Card -->
-            <div class="card" style="background: rgba(255, 255, 255, 0.02); border: 1px solid rgba(255, 255, 255, 0.04); border-radius: 16px; padding: 32px; display: flex; flex-direction: column; height: 100%; transition: border-color 0.2s ease;">
+            <div class="card" style="background: rgba(255, 255, 255, 0.02); border: 1px solid rgba(255, 255, 255, 0.04); border-radius: 16px; padding: 20px 24px; display: flex; flex-direction: column; height: 100%; transition: border-color 0.2s ease;">
                 <!-- Top Level -->
                 <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 20px;">
                     <h3 style="font-size: 13px; font-weight: 500; letter-spacing: 0.07em; color: #94A3B8; text-transform: uppercase; margin: 0;">Transactions Stats</h3>
@@ -178,7 +182,7 @@ export function renderMainArea() {
             </div>
 
             <!-- Right Card: Indexing Details -->
-            <div class="card" style="background: rgba(255, 255, 255, 0.02); border: 1px solid rgba(255, 255, 255, 0.04); border-radius: 16px; padding: 32px; display: flex; flex-direction: column; height: 100%; transition: border-color 0.2s ease;">
+            <div class="card" style="background: rgba(255, 255, 255, 0.02); border: 1px solid rgba(255, 255, 255, 0.04); border-radius: 16px; padding: 20px 24px; display: flex; flex-direction: column; height: 100%; transition: border-color 0.2s ease;">
                 <!-- Top Level -->
                 <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 20px;">
                     <h3 style="font-size: 13px; font-weight: 500; letter-spacing: 0.07em; color: #94A3B8; text-transform: uppercase; margin: 0;">Indexing Details</h3>
@@ -196,7 +200,7 @@ export function renderMainArea() {
                     </div>
                     
                     <div style="display: flex; flex-direction: column; gap: 8px;">
-                        <span style="font-family: var(--font-mono); font-size: 24px; font-weight: 600; color: #F8FAFC; line-height: 1;">${elapsedLabel}</span>
+                        <span id="elapsedTimeValue" style="font-family: var(--font-mono); font-size: 24px; font-weight: 600; color: #F8FAFC; line-height: 1;">${elapsedLabel}</span>
                         <span style="color: #94A3B8; font-size: 12px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.06em;">Elapsed</span>
                     </div>
                     
