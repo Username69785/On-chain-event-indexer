@@ -1,18 +1,18 @@
 use anyhow::Result;
-use bigdecimal::ToPrimitive;
+use bigdecimal::{ToPrimitive, Zero};
 use std::{sync::Arc, time::Instant};
 use tokio::task::JoinHandle;
 use tokio::time::{Duration, sleep};
 use tracing::{Instrument, debug, info, warn};
 
 mod requests;
-use requests::*;
+use requests::{HeliusApi, RpcResponse, TokenTransferChange, TransactionInfo, TransactionResult};
 
 mod database;
-use database::*;
+use database::{ClaimedJob, Database};
 
 mod frontend;
-use frontend::*;
+use frontend::create_server;
 
 mod backoff;
 use backoff::WorkerBackoff;
@@ -31,7 +31,7 @@ async fn main() -> Result<()> {
 
     let app_state = Arc::new(AppState {
         database: Database::new_pool().await?,
-        helius_api: HeliusApi::new(8, 2),
+        helius_api: HeliusApi::new(8, 2)?,
     });
 
     // Ловит запросы с фронта (запускаем в отдельной задаче, чтобы не блокировать воркеров)
@@ -73,13 +73,11 @@ async fn worker_loop(app_state: Arc<AppState>, worker_id: u32) -> Result<()> {
                 Ok(None) => {
                     let delay = worker_backoff.step_and_get_sleep_duration();
                     sleep(delay).await;
-                    continue;
                 }
                 Err(err) => {
                     warn!(%err, worker_id, "Failed to claim pending job");
                     let delay = worker_backoff.step_and_get_sleep_duration();
                     sleep(delay).await;
-                    continue;
                 }
             }
         };
@@ -103,7 +101,7 @@ async fn worker_loop(app_state: Arc<AppState>, worker_id: u32) -> Result<()> {
         .await;
 
         match processing_result {
-            Ok(_) => {
+            Ok(()) => {
                 if let Err(err) = app_state
                     .database
                     .update_processing_status_by_job_id(job_id, "ready")
@@ -215,13 +213,13 @@ async fn fetched_unprocessed_signatures(app_state: &AppState, address: &str) -> 
         let signatures = database.get_unprocessed_signatures(address, 100).await?;
         info!(count = signatures.len(), "Fetched unprocessed signatures");
 
-        if signatures.len() == 0 {
+        if signatures.len().is_zero() {
             info!("No more signatures available");
             break;
         }
 
         let tx_fetch_started = Instant::now();
-        let transaction_batch = helius_api.get_transaction(signatures).await?;
+        let transaction_batch = helius_api.get_transaction(&signatures).await?;
         info!(
             count = transaction_batch.transactions.len(),
             failed = transaction_batch.failed_signatures.len(),

@@ -1,7 +1,6 @@
 use serde::{Deserialize, de::Deserializer};
 use serde_json::Value;
 use std::collections::HashMap;
-use tracing::warn;
 
 #[derive(Deserialize, Debug)]
 pub struct Signature {
@@ -29,9 +28,6 @@ pub struct RpcEnvelope<T> {
 pub struct RpcError {
     pub code: i64,
     pub message: String,
-
-    #[serde(default)]
-    pub data: Option<Value>,
 }
 
 pub fn is_rate_limited(status_code: Option<u16>, rpc_code: Option<i64>, message: &str) -> bool {
@@ -61,9 +57,6 @@ impl RpcError {
 #[derive(Deserialize, Debug)]
 pub struct TransactionResult {
     pub result: TransactionInfo,
-
-    #[serde(skip)]
-    pub vec_transfers: Vec<Transfers>,
 
     /// Изменения балансов SPL токенов (рассчитывается после десериализации)
     #[serde(skip)]
@@ -110,9 +103,6 @@ pub struct Meta {
     #[serde(default)]
     pub err: Value,
 
-    pub post_balances: Vec<u64>,
-    pub pre_balances: Vec<u64>,
-
     /// Доп. адреса из Address Lookup Tables (для versioned tx)
     #[serde(default)]
     pub loaded_addresses: Option<LoadedAddresses>,
@@ -137,21 +127,19 @@ pub struct LoadedAddresses {
 #[derive(Deserialize, Debug)]
 pub struct Transaction {
     pub signatures: Vec<String>,
-    pub message: AccountKeys, // account_keys
+    pub message: AccountKeys, // keys
 }
 
 #[derive(Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct MessageHeader {
-    pub num_required_signatures: u8,
-    pub num_readonly_signed_accounts: u8,
-    pub num_readonly_unsigned_accounts: u8,
+    pub required_signatures: u8,
 }
 
 #[derive(Deserialize, Debug)]
 pub struct AccountKeys {
     #[serde(rename = "accountKeys")]
-    account_keys: Vec<AccountKey>,
+    keys: Vec<AccountKey>,
 
     /// Инструкции верхнего уровня (jsonParsed)
     #[serde(default)]
@@ -172,21 +160,6 @@ pub struct Instruction {
     pub program: Option<String>,
     #[serde(default)]
     pub program_id: Option<String>,
-    #[serde(default)]
-    pub program_id_index: Option<u16>,
-    #[serde(default)]
-    pub accounts: Vec<AccountRef>,
-    #[serde(default)]
-    pub data: Option<String>,
-    #[serde(default)]
-    pub stack_height: Option<u8>,
-}
-
-#[derive(Deserialize, Debug, Clone)]
-#[serde(untagged)]
-pub enum AccountRef {
-    Index(u16),
-    Address(String),
 }
 
 #[derive(Deserialize, Debug, Clone)]
@@ -223,8 +196,6 @@ pub struct ParsedInfo {
     #[serde(default)]
     pub ui_amount: Option<f64>,
     #[serde(default)]
-    pub ui_amount_string: Option<String>,
-    #[serde(default)]
     pub mint: Option<String>,
     #[serde(default)]
     pub authority: Option<String>,
@@ -257,14 +228,6 @@ pub enum AccountKey {
 pub struct AccountKeyInfo {
     pub pubkey: String,
     pub signer: Option<bool>,
-    pub source: Option<String>,
-    pub writable: Option<bool>,
-}
-
-#[derive(Deserialize, Debug)]
-pub struct Transfers {
-    transfers: i64,
-    address: String,
 }
 
 #[derive(Deserialize, Debug, Clone)]
@@ -273,7 +236,6 @@ pub struct TokenBalance {
     pub account_index: u8,
     pub mint: String,
     pub owner: String,
-    pub program_id: String,
     pub ui_token_amount: UiTokenAmount,
 }
 
@@ -283,7 +245,6 @@ pub struct UiTokenAmount {
     pub amount: String,
     pub decimals: u8,
     pub ui_amount: Option<f64>,
-    pub ui_amount_string: String,
 }
 
 /// Изменение баланса токена для конкретного аккаунта
@@ -322,7 +283,7 @@ pub struct TokenTransferChange {
     /// Тип актива (native/spl)
     pub asset_type: String,
 
-    /// Направление относительно tracked_owner
+    /// Направление относительно `tracked_owner`
     pub direction: String,
 
     /// Кто авторизовал (часто важно для SPL)
@@ -338,17 +299,17 @@ pub struct TokenTransferChange {
 impl TransactionResult {
     pub fn num_signers(&self) -> i32 {
         if let Some(header) = &self.result.transaction.message.header {
-            return i32::from(header.num_required_signatures);
+            return i32::from(header.required_signatures);
         }
         let signatures_len = self.result.transaction.signatures.len();
         if signatures_len > 0 {
-            return signatures_len as i32;
+            return i32::try_from(signatures_len).unwrap_or(0);
         }
-        self.result.transaction.message.count_signers() as i32
+        i32::try_from(self.result.transaction.message.count_signers()).unwrap_or(0)
     }
 
     pub fn num_instructions(&self) -> i32 {
-        self.result.transaction.message.instructions.len() as i32
+        i32::try_from(self.result.transaction.message.instructions.len()).unwrap_or(0)
     }
 
     pub fn all_account_keys(&self) -> Vec<String> {
@@ -358,39 +319,6 @@ impl TransactionResult {
             keys.extend(loaded.readonly.clone());
         }
         keys
-    }
-
-    pub fn calculate_transfers(&mut self) {
-        let pre_balances: &Vec<u64> = &self.result.meta.pre_balances;
-        let post_balances: &Vec<u64> = &self.result.meta.post_balances;
-        let account_keys: Vec<String> = self.all_account_keys();
-
-        if pre_balances.len() != account_keys.len() || post_balances.len() != account_keys.len() {
-            warn!(
-                pre_len = pre_balances.len(),
-                post_len = post_balances.len(),
-                keys_len = account_keys.len(),
-                "Balances length doesn't match account keys; skipping unmatched entries"
-            );
-        }
-
-        self.vec_transfers = pre_balances
-            .iter()
-            .enumerate() // (i, pre)
-            .zip(post_balances) // ((i, pre), post)
-            .filter_map(|((i, pre), post)| {
-                let difference = *pre as i64 - *post as i64;
-
-                if difference != 0 {
-                    Some(Transfers {
-                        transfers: difference,
-                        address: account_keys.get(i)?.clone(),
-                    })
-                } else {
-                    None
-                }
-            })
-            .collect();
     }
 
     /// Собирает перемещения токенов и SOL из jsonParsed инструкций.
@@ -406,9 +334,9 @@ impl TransactionResult {
             .iter()
             .enumerate()
         {
-            self.collect_token_transfer(
+            Self::collect_token_transfer(
                 instruction,
-                idx as i32,
+                i32::try_from(idx).unwrap_or(0),
                 None,
                 &token_account_meta,
                 &mut transfers,
@@ -417,10 +345,10 @@ impl TransactionResult {
 
         for inner in &self.result.meta.inner_instructions {
             for (inner_idx, instruction) in inner.instructions.iter().enumerate() {
-                self.collect_token_transfer(
+                Self::collect_token_transfer(
                     instruction,
-                    inner.index as i32,
-                    Some(inner_idx as i32),
+                    i32::from(inner.index),
+                    Some(i32::try_from(inner_idx).unwrap_or(0)),
                     &token_account_meta,
                     &mut transfers,
                 );
@@ -431,7 +359,6 @@ impl TransactionResult {
     }
 
     pub fn collect_token_transfer(
-        &self,
         instruction: &Instruction,
         instruction_idx: i32,
         inner_idx: Option<i32>,
@@ -442,9 +369,8 @@ impl TransactionResult {
         const TOKEN_PROGRAM: &str = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA";
 
         // 1. Получаем распарсенные данные (если есть)
-        let parsed = match &instruction.parsed {
-            Some(parsed) => parsed,
-            None => return,
+        let Some(parsed) = &instruction.parsed else {
+            return;
         };
 
         // 2. Проверяем тип инструкции: нас интересуют только transfer/mint/burn
@@ -600,7 +526,7 @@ impl TransactionResult {
 
     /// Быстрый маппинг token-account -> {owner, mint, decimals} из pre/post балансов.
     pub fn token_account_meta_map(&self) -> HashMap<String, TokenAccountMeta> {
-        let account_keys = self.all_account_keys();
+        let keys = self.all_account_keys();
         let mut map = HashMap::new();
 
         for balance in self
@@ -610,7 +536,7 @@ impl TransactionResult {
             .iter()
             .chain(self.result.meta.post_token_balances.iter())
         {
-            if let Some(token_account) = account_keys.get(balance.account_index as usize) {
+            if let Some(token_account) = keys.get(balance.account_index as usize) {
                 map.insert(
                     token_account.clone(),
                     TokenAccountMeta {
@@ -635,7 +561,7 @@ pub struct TokenAccountMeta {
 
 impl AccountKeys {
     pub fn pubkeys(&self) -> Vec<String> {
-        self.account_keys
+        self.keys
             .iter()
             .map(|k| match k {
                 AccountKey::Pubkey(s) => s.clone(),
@@ -645,11 +571,11 @@ impl AccountKeys {
     }
 
     pub fn count_signers(&self) -> usize {
-        self.account_keys
+        self.keys
             .iter()
             .filter(|k| match k {
                 AccountKey::Info(info) => info.signer.unwrap_or(false),
-                _ => false,
+                AccountKey::Pubkey(_) => false,
             })
             .count()
     }

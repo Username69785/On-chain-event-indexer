@@ -22,7 +22,10 @@ use tracing::{Instrument, debug, info, instrument, warn};
 use crate::backoff::WorkerBackoff;
 use crate::logging::mask_addr;
 
-use super::types::*;
+use super::types::{
+    RpcEnvelope, RpcResponse, Signature, TransactionBatch, TransactionFetchError, TransactionInfo,
+    TransactionResult,
+};
 
 const MAX_RATE_LIMIT_RETRIES: usize = 4;
 
@@ -35,7 +38,7 @@ struct RpcHttpResponse {
 enum TransactionFetchOutcome {
     Success {
         signature: String,
-        transaction: TransactionResult,
+        transaction: Box<TransactionResult>,
     },
     Failed(TransactionFetchError),
 }
@@ -67,20 +70,23 @@ pub struct HeliusApi {
 }
 
 impl HeliusApi {
-    pub fn new(rps: u32, max_concurrent: usize) -> Self {
-        let quota = Quota::per_second(std::num::NonZeroU32::new(rps).unwrap())
-            .allow_burst(std::num::NonZeroU32::new(1).unwrap());
+    pub fn new(rps: u32, max_concurrent: usize) -> Result<Self> {
+        let quota = Quota::per_second(
+            std::num::NonZeroU32::new(rps)
+                .ok_or_else(|| anyhow!("RPS не может быть равен нулю"))?,
+        )
+        .allow_burst(std::num::NonZeroU32::MIN);
         let rate_limiter = Arc::new(RateLimiter::direct(quota));
         let semaphore = Arc::new(Semaphore::new(max_concurrent));
-        let rate_limit_backoff = Arc::new(Mutex::new(WorkerBackoff::new(500, 10_000, 2.0)));
+        let rate_limit_backoff = Arc::new(Mutex::new(WorkerBackoff::new(500.0, 10_000.0, 2.0)));
         let rate_limit_until = Arc::new(Mutex::new(None));
         let last_rate_limit_at = Arc::new(Mutex::new(None));
 
-        let api = dotenvy::var("api").expect("api не найден в .env");
+        let api = dotenvy::var("api")?;
         let client = Client::new();
         let url = String::from("https://mainnet.helius-rpc.com/?api-key=");
 
-        HeliusApi {
+        Ok(Self {
             api,
             url,
             client,
@@ -89,7 +95,7 @@ impl HeliusApi {
             rate_limit_backoff,
             rate_limit_until,
             last_rate_limit_at,
-        }
+        })
     }
 
     #[instrument(target = "client", skip(self), fields(address = %mask_addr(adress), before = ?last_signature))]
@@ -138,9 +144,7 @@ impl HeliusApi {
                     }
 
                     return Err(anyhow!(
-                        "failed to decode getSignaturesForAddress response: status={}, error={}",
-                        status,
-                        error
+                        "failed to decode getSignaturesForAddress response: status={status}, error={error}"
                     ));
                 }
             };
@@ -533,13 +537,13 @@ impl HeliusApi {
     }
 
     async fn register_rate_limit(&self, retry_after: Option<Duration>) -> Duration {
-        let delay = match retry_after.filter(|delay| !delay.is_zero()) {
-            Some(delay) => delay,
-            None => {
+        let delay = if let Some(delay) = retry_after.filter(|delay| !delay.is_zero()) {
+            delay
+        } else {
                 let mut backoff = self.rate_limit_backoff.lock().await;
                 backoff.step_and_get_sleep_duration()
-            }
         };
+
         let until = Instant::now()
             .checked_add(delay)
             .unwrap_or_else(Instant::now);
@@ -549,6 +553,8 @@ impl HeliusApi {
             Some(current_until) if current_until >= until => {}
             _ => *rate_limit_until = Some(until),
         }
+
+        drop(rate_limit_until);
 
         // Track when we last saw a rate limit
         let mut last_rl = self.last_rate_limit_at.lock().await;
@@ -575,10 +581,7 @@ impl HeliusApi {
             // prevents premature reset when parallel workers get interleaved successes
             let should_reset = {
                 let last_rl = self.last_rate_limit_at.lock().await;
-                match *last_rl {
-                    Some(at) => at.elapsed() > Duration::from_secs(5),
-                    None => true,
-                }
+                last_rl.is_none_or(|at| at.elapsed() > Duration::from_secs(5))
             };
 
             if should_reset {
