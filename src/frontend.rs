@@ -1,3 +1,4 @@
+use anyhow::Result;
 use axum::{
     Router,
     extract::{Json, Path, State},
@@ -14,7 +15,7 @@ use tracing::{error, info, warn};
 use crate::logging::mask_addr;
 
 #[derive(Debug, Deserialize, Serialize)]
-pub struct Address {
+pub struct AddressProcessing {
     pub address: String,
     pub requested_hours: i16,
     #[serde(rename = "txLimit")]
@@ -30,16 +31,12 @@ pub struct JobInfo {
     pub remaining_transactions: i64,
 }
 
-pub async fn create_server(pool: PgPool) {
+pub async fn create_server(pool: PgPool) -> Result<()> {
     info!("Starting API server initialization");
 
     // Разрешаем cors
     let cors = CorsLayer::new()
-        .allow_origin(
-            "http://127.0.0.1:5500"
-                .parse::<http::HeaderValue>()
-                .unwrap(),
-        )
+        .allow_origin("http://127.0.0.1:5500".parse::<http::HeaderValue>()?)
         .allow_methods(Any)
         .allow_headers(Any);
 
@@ -51,19 +48,19 @@ pub async fn create_server(pool: PgPool) {
         .with_state(pool);
 
     // Создаем TCP listener
-    let listener = tokio::net::TcpListener::bind("127.0.0.1:8080")
-        .await
-        .unwrap();
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:8080").await?;
     info!(address = "127.0.0.1:8080", "API listener bound");
 
     // Запускаем сервер
     info!("API server is running");
-    axum::serve(listener, app).await.unwrap();
+    axum::serve(listener, app).await?;
+
+    Ok(())
 }
 
 pub async fn address_processing(
     State(pool): State<PgPool>,
-    Json(payload): Json<Address>,
+    Json(payload): Json<AddressProcessing>,
 ) -> impl IntoResponse {
     info!(
         address = %mask_addr(&payload.address),

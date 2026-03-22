@@ -28,7 +28,7 @@ pub struct ClaimedJob {
 impl Database {
     #[instrument]
     pub async fn new_pool() -> Result<Self> {
-        let url = dotenvy::var("DATABASE_URL").expect("database_url не найден в .env");
+        let url = dotenvy::var("DATABASE_URL")?;
         let started = Instant::now();
         let pool = PgPoolOptions::new()
             .max_connections(5)
@@ -39,10 +39,10 @@ impl Database {
             "Database pool created"
         );
 
-        Ok(Database { pool })
+        Ok(Self { pool })
     }
 
-    /// Получает пачку подписей, которые еще не были обработаны (is_processed = false).
+    /// Получает пачку подписей, которые еще не были обработаны (`is_processed` = false).
     /// Отметка как обработанных выполняется отдельным шагом после успешной обработки.
     #[instrument(skip(self), fields(address = %mask_addr(address), limit))]
     pub async fn get_unprocessed_signatures(
@@ -52,13 +52,13 @@ impl Database {
     ) -> Result<Vec<String>> {
         let started = Instant::now();
         let signatures = sqlx::query_scalar::<_, String>(
-            r#"
+            "
             SELECT signature
             FROM signatures
             WHERE owner_address = $1 AND is_processed = FALSE
             ORDER BY block_time DESC
             LIMIT $2
-            "#,
+            ",
         )
         .bind(address)
         .bind(limit)
@@ -86,13 +86,13 @@ impl Database {
 
         let started = Instant::now();
         let result = sqlx::query(
-            r#"
+            "
             UPDATE signatures
             SET is_processed = TRUE
             WHERE owner_address = $1
               AND signature = ANY($2)
               AND is_processed = FALSE
-            "#,
+            ",
         )
         .bind(address)
         .bind(signatures)
@@ -124,7 +124,7 @@ impl Database {
         let signatures_iter = signatures.result.iter();
 
         query_builder.push_values(signatures_iter, |mut b, signature| {
-            b.push_bind(&adress)
+            b.push_bind(adress)
                 .push_bind(&signature.signature)
                 .push_bind(signature.block_time);
         });
@@ -146,7 +146,7 @@ impl Database {
     #[instrument(skip(self, transaction_info), fields(address = %mask_addr(tracked_owner), input_count = transaction_info.len()))]
     pub async fn write_transaction_info(
         &self,
-        transaction_info: &Vec<TransactionResult>,
+        transaction_info: &[TransactionResult],
         tracked_owner: &str,
     ) -> Result<u64> {
         if transaction_info.is_empty() {
@@ -173,7 +173,7 @@ impl Database {
             let num_signers = tx.num_signers();
             let num_instructions = tx.num_instructions();
 
-            b.push_bind(&tracked_owner)
+            b.push_bind(tracked_owner)
                 .push_bind(signature)
                 .push_bind(tx.result.slot)
                 .push_bind(tx.result.block_time)
@@ -232,7 +232,7 @@ impl Database {
                 .map(String::as_str)
                 .unwrap_or_default();
 
-            b.push_bind(&tracked_owner)
+            b.push_bind(tracked_owner)
                 .push_bind(signature)
                 .push_bind(&transfer.source_owner)
                 .push_bind(&transfer.destination_owner)
@@ -269,7 +269,7 @@ impl Database {
     #[instrument(skip(self, transaction_info), fields(address = %mask_addr(address), input_count = transaction_info.len()))]
     pub async fn save_transaction_data(
         &self,
-        transaction_info: &Vec<TransactionResult>,
+        transaction_info: &[TransactionResult],
         address: &str,
     ) -> Result<SaveStats> {
         if transaction_info.is_empty() {
@@ -309,7 +309,7 @@ impl Database {
         let worker_id = i32::try_from(worker_id).unwrap_or(i32::MAX);
 
         let claimed_job = sqlx::query_as::<_, ClaimedJob>(
-            r#"
+            "
             WITH next_job AS (
                 SELECT id
                 FROM processing_data pd
@@ -325,7 +325,7 @@ impl Database {
             FROM next_job
             WHERE pd.id = next_job.id
             RETURNING pd.id AS job_id, pd.address, pd.requested_hours, pd.tx_limit
-            "#,
+            ",
         )
         .bind(worker_id)
         .fetch_optional(&self.pool)
@@ -348,13 +348,13 @@ impl Database {
     ) -> Result<u64> {
         let started = Instant::now();
         let result = sqlx::query(
-            r#"
+            "
             UPDATE processing_data
             SET status     = $1,
                 updated_at = now()
             WHERE id = $2
               AND status = 'indexing'
-            "#,
+            ",
         )
         .bind(status)
         .bind(job_id)
