@@ -4,7 +4,7 @@ import { renderSidebar } from './sidebar.js';
 import { renderMainArea } from './mainArea.js';
 import { showGlobalToast, showStatus } from '../utils.js';
 
-const POLL_INTERVAL_MS = 5000;
+const POLL_INTERVAL_MS = 10000;
 
 export function initModal() {
     const addAddressBtn = document.getElementById('addAddressBtn');
