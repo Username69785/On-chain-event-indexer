@@ -1,4 +1,3 @@
-use rand::Rng;
 use tokio::time::Duration;
 
 pub struct WorkerBackoff {
@@ -28,7 +27,7 @@ impl WorkerBackoff {
 
         // Equal jitter: половина фиксированная + половина рандомная
         let jitter = if half_delay > 0.0 {
-            rand::rng().random_range(0.0..half_delay)
+            rand::random_range(0.0..half_delay)
         } else {
             0.0
         };
