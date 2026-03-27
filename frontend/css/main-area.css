@@ -3,6 +3,7 @@
     flex-direction: column;
     background: var(--surface-color);
     border-radius: 0;
+    min-width: 0;
 }
 
 .action-btn {
@@ -30,6 +31,7 @@
     overflow-y: auto;
     display: flex;
     flex-direction: column;
+    min-width: 0;
 }
 
 .empty-state {

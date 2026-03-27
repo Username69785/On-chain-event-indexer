@@ -255,6 +255,7 @@ export function initModal() {
         try {
             actions.addOrUpdateAddress(address, {
                 status: 'pending',
+                requestedHours: state.filters.time,
                 totalTransactions: 0,
                 processedTransactions: 0,
                 remainingTransactions: 0,

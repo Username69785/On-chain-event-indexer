@@ -42,6 +42,7 @@ export const actions = {
                 chartsStatus: 'idle',
                 chartsError: null,
                 chartsFetchedAt: null,
+                requestedHours: 24,
                 ...patch
             });
         }

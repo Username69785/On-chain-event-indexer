@@ -85,7 +85,30 @@ function destroyTxTimelineChart() {
     }
 }
 
-function renderTxTimelineChart(chartData) {
+function formatTimelineLabel(timestampMs) {
+    return new Date(timestampMs).toLocaleTimeString([], {
+        hour: '2-digit',
+        minute: '2-digit'
+    });
+}
+
+function buildTimelineLabels(requestedHours, pointCount) {
+    const safePointCount = Math.max(pointCount, 1);
+    const endTimeMs = Date.now();
+    const startTimeMs = endTimeMs - (Number(requestedHours || 24) * 60 * 60 * 1000);
+
+    if (safePointCount === 1) {
+        return [formatTimelineLabel(endTimeMs)];
+    }
+
+    const stepMs = (endTimeMs - startTimeMs) / (safePointCount - 1);
+
+    return Array.from({ length: safePointCount }, (_, index) =>
+        formatTimelineLabel(startTimeMs + (stepMs * index))
+    );
+}
+
+function renderTxTimelineChart(chartData, requestedHours) {
     destroyTxTimelineChart();
 
     const canvas = document.getElementById('txTimelineChart');
@@ -93,19 +116,27 @@ function renderTxTimelineChart(chartData) {
         return;
     }
 
+    const normalizedData = [...chartData].reverse();
+    const labels = buildTimelineLabels(requestedHours, normalizedData.length);
+
     txTimelineChart = new window.Chart(canvas, {
         type: 'bar',
         data: {
-            labels: chartData.map((_, index) => `${index + 1}`),
+            labels,
             datasets: [{
                 label: 'tx_time_line',
-                data: chartData,
+                data: normalizedData,
                 borderWidth: 1
             }]
         },
         options: {
             responsive: true,
-            maintainAspectRatio: false
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: false
+                }
+            }
         }
     });
 }
@@ -149,9 +180,9 @@ function renderChartsSection(currentItem) {
 
     return `
         <div style="display: flex; flex-direction: column; gap: 16px; margin-top: 24px;">
-            <div class="card" style="padding: 16px 20px;">
+            <div class="card" style="width: 100%; max-width: 100%; min-width: 0; overflow: hidden; padding: 16px 20px;">
                 <div style="margin-bottom: 12px; font-size: 14px; font-weight: 600; color: var(--text-primary);">tx_time_line</div>
-                <div style="height: 280px;">
+                <div style="position: relative; width: 100%; max-width: 100%; min-width: 0; height: 280px;">
                     <canvas id="txTimelineChart"></canvas>
                 </div>
             </div>
@@ -330,6 +361,6 @@ export function renderMainArea() {
     }
 
     if (currentItem.chartsStatus === 'loaded' && currentItem.charts?.tx_time_line) {
-        renderTxTimelineChart(currentItem.charts.tx_time_line);
+        renderTxTimelineChart(currentItem.charts.tx_time_line, currentItem.requestedHours);
     }
 }
