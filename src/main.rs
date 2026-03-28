@@ -20,6 +20,8 @@ use backoff::WorkerBackoff;
 mod logging;
 mod telemetry;
 
+mod charts;
+
 struct AppState {
     database: Database,
     helius_api: HeliusApi,

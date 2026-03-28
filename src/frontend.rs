@@ -12,6 +12,9 @@ use sqlx::{FromRow, PgPool, Row};
 use tower_http::cors::{Any, CorsLayer};
 use tracing::{error, info, warn};
 
+use crate::charts::{
+    count_success_fail_tx, native_volume_lamports, total_fee_lamports, tx_time_line,
+};
 use crate::logging::mask_addr;
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -44,6 +47,7 @@ pub async fn create_server(pool: PgPool) -> Result<()> {
     let app = Router::new()
         .route("/analyze", post(address_processing))
         .route("/jobs/{id}", get(get_job_info))
+        .route("/jobs/{id}/charts", get(get_charts))
         .layer(cors)
         .with_state(pool);
 
@@ -147,6 +151,81 @@ pub async fn get_job_info(State(pool): State<PgPool>, Path(id): Path<i64>) -> im
         }
         Err(e) => {
             error!(job_id = id, error = %e, "Failed to fetch job info");
+            (
+                axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({ "error": e.to_string() })),
+            )
+                .into_response()
+        }
+    }
+}
+// возращает json со всей инфой для графиков
+pub async fn get_charts(State(pool): State<PgPool>, Path(id): Path<i64>) -> impl IntoResponse {
+    info!(job_id = id, "Received charts request");
+
+    let row = sqlx::query!(
+        "SELECT address, requested_hours FROM processing_data WHERE id = $1",
+        id
+    )
+    .fetch_optional(&pool)
+    .await;
+
+    let (address, requested_hours) = match row {
+        Ok(Some(r)) => {
+            info!(
+                job_id = id,
+                address = %mask_addr(&r.address),
+                requested_hours = r.requested_hours,
+                "Fetched job data for charts"
+            );
+            (r.address, r.requested_hours)
+        }
+        Ok(None) => {
+            warn!(job_id = id, "Job not found for charts");
+            return (
+                axum::http::StatusCode::NOT_FOUND,
+                Json(json!({ "error": "Job not found" })),
+            )
+                .into_response();
+        }
+        Err(e) => {
+            error!(job_id = id, error = %e, "Failed to fetch job for charts");
+            return (
+                axum::http::StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({ "error": e.to_string() })),
+            )
+                .into_response();
+        }
+    };
+
+    let result: std::result::Result<(_, [u16; 30], i64, i64), anyhow::Error> = tokio::try_join!(
+        count_success_fail_tx(&pool, &address),
+        tx_time_line(&pool, u16::try_from(requested_hours).unwrap_or(1), &address),
+        total_fee_lamports(&pool, &address),
+        native_volume_lamports(&pool, &address),
+    );
+
+    match result {
+        Ok((success_fail_tx, tx_time_line, total_fee_lamports, native_volume_lamports)) => {
+            info!(
+                job_id = id,
+                count_success_tx = success_fail_tx.success_tx,
+                count_failed_tx = success_fail_tx.failed_tx,
+                total_fee_lamports,
+                native_volume_lamports,
+                "Charts computed successfully"
+            );
+            Json(json!({
+                "count_success_tx": success_fail_tx.success_tx,
+                "tx_time_line": tx_time_line,
+                "total_fee_lamports": total_fee_lamports,
+                "count_failed_tx": success_fail_tx.failed_tx,
+                "native_volume_lamports": native_volume_lamports,
+            }))
+            .into_response()
+        }
+        Err(e) => {
+            error!(job_id = id, error = %e, "Failed to compute charts");
             (
                 axum::http::StatusCode::INTERNAL_SERVER_ERROR,
                 Json(json!({ "error": e.to_string() })),
