@@ -21,7 +21,7 @@ solana-client = "3.0.0"
 solana-sdk = "3.0.0"
 solana-transaction-status = "3.0.0"
 solana-account-decoder = "3.0.0"
-clap = { version = "4.5.60", features = ["derive"] }
+clap = { version = "4.6.0", features = ["derive"] }
 config = "0.15.22"
 dotenvy = "0.15.7"
 chrono = { version = "0.4.44", features = ["serde"] }
@@ -36,7 +36,7 @@ sqlx = { version = "0.8.6", features = [
     "bigdecimal",
 ] }
 bigdecimal = "0.4"
-uuid = { version = "1.22.0", features = ["serde", "v4"] }
+uuid = { version = "1.23.0", features = ["serde", "v4"] }
 colored = { version = "3.1.1" }
 futures = "0.3.32"
 rand = "0.10"
