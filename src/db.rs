@@ -7,8 +7,8 @@ use jobs::Jobs;
 use signatures::Signatures;
 use transactions::{SaveStats, Transactions};
 
-use anyhow::Result;
 use crate::requests::{RpcResponse, TransactionResult};
+use anyhow::Result;
 use sqlx::{PgPool, postgres::PgPoolOptions};
 use std::time::Instant;
 use tracing::{info, instrument};
