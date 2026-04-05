@@ -8,8 +8,8 @@ use tracing::{Instrument, debug, info, warn};
 mod requests;
 use requests::{HeliusApi, RpcResponse, TokenTransferChange, TransactionInfo, TransactionResult};
 
-mod database;
-use database::{ClaimedJob, Database};
+mod db;
+use db::*;
 
 mod frontend;
 use frontend::create_server;
@@ -34,7 +34,6 @@ async fn main() -> Result<()> {
         helius_api: HeliusApi::new(8, 2)?,
     });
 
-    // Ловит запросы с фронта (запускаем в отдельной задаче, чтобы не блокировать воркеров)
     let server_handle = tokio::spawn(create_server(app_state.database.pool.clone()));
 
     let mut worker_handles: Vec<JoinHandle<Result<()>>> = Vec::new();
@@ -44,7 +43,6 @@ async fn main() -> Result<()> {
         sleep(Duration::from_millis(700)).await;
     }
 
-    // Ждём завершения всех задач (сервер + воркеры)
     tokio::select! {
         res = server_handle => {
             warn!("API server exited: {:?}", res);
