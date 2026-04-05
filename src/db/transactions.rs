@@ -1,0 +1,182 @@
+use anyhow::Result;
+use bigdecimal::{BigDecimal, FromPrimitive};
+use sqlx::QueryBuilder;
+use sqlx::postgres::PgPool;
+use std::time::Instant;
+use tracing::{debug, info, instrument};
+
+use crate::logging::mask_addr;
+use crate::requests::{TokenTransferChange, TransactionInfo, TransactionResult};
+
+pub struct Transactions {
+    pool: PgPool,
+}
+
+pub struct SaveStats {
+    pub transactions: u64,
+    pub token_transfers: u64,
+}
+
+impl Transactions {
+    #[instrument]
+    pub fn new(pool: PgPool) -> Self {
+        Self { pool }
+    }
+
+    #[instrument(skip(self, transaction_info), fields(address = %mask_addr(tracked_owner), input_count = transaction_info.len()))]
+    pub async fn write_transaction_info(
+        &self,
+        transaction_info: &[TransactionResult],
+        tracked_owner: &str,
+    ) -> Result<u64> {
+        if transaction_info.is_empty() {
+            debug!("No transactions to insert");
+            return Ok(0);
+        }
+
+        let started = Instant::now();
+        let mut query_builder: QueryBuilder<sqlx::Postgres> = QueryBuilder::new(
+            "INSERT INTO transactions
+            (owner_address, signature, slot, block_time, err, fee, compute_units, num_signers, num_instructions)",
+        );
+
+        let transaction_iter = transaction_info.iter();
+
+        query_builder.push_values(transaction_iter, |mut b, tx| {
+            let signature = tx
+                .result
+                .transaction
+                .signatures
+                .first()
+                .map(String::as_str)
+                .unwrap_or_default();
+            let num_signers = tx.num_signers();
+            let num_instructions = tx.num_instructions();
+
+            b.push_bind(tracked_owner)
+                .push_bind(signature)
+                .push_bind(tx.result.slot)
+                .push_bind(tx.result.block_time)
+                .push_bind(&tx.result.meta.err)
+                .push_bind(tx.result.meta.fee)
+                .push_bind(tx.result.meta.compute_units_consumed)
+                .push_bind(num_signers)
+                .push_bind(num_instructions);
+        });
+        query_builder.push("ON CONFLICT (owner_address, signature) DO NOTHING");
+
+        let query = query_builder.build();
+
+        let result = query.execute(&self.pool).await?;
+        let inserted = result.rows_affected();
+        debug!(
+            inserted,
+            elapsed_ms = started.elapsed().as_millis(),
+            "Transactions inserted"
+        );
+
+        Ok(inserted)
+    }
+
+    #[instrument(skip(self, transactions), fields(tracked_owner = %mask_addr(tracked_owner), input_count = transactions.len()))]
+    pub async fn write_token_transfers(
+        &self,
+        transactions: &[TransactionResult],
+        tracked_owner: &str,
+    ) -> Result<u64> {
+        let mut rows: Vec<(&TransactionInfo, &TokenTransferChange)> = Vec::new();
+
+        for tx in transactions {
+            for transfer in &tx.token_transfer_changes {
+                rows.push((&tx.result, transfer));
+            }
+        }
+
+        if rows.is_empty() {
+            debug!("No token transfers to insert");
+            return Ok(0);
+        }
+        let started = Instant::now();
+
+        // Сохраняем распарсенные transfer-поля по схеме token_transfers
+        let mut query_builder: QueryBuilder<sqlx::Postgres> = QueryBuilder::new(
+            "INSERT INTO token_transfers
+            (tracked_owner, signature, source_owner, destination_owner, source_token_account, destination_token_account, token_mint, token_program, amount_raw, amount_ui, decimals, asset_type, transfer_type, direction, instruction_idx, inner_idx, authority, slot, block_time)",
+        );
+
+        query_builder.push_values(rows.iter(), |mut b, (tx, transfer)| {
+            let signature = tx
+                .transaction
+                .signatures
+                .first()
+                .map(String::as_str)
+                .unwrap_or_default();
+
+            b.push_bind(tracked_owner)
+                .push_bind(signature)
+                .push_bind(&transfer.source_owner)
+                .push_bind(&transfer.destination_owner)
+                .push_bind(&transfer.source_token_account)
+                .push_bind(&transfer.destination_token_account)
+                .push_bind(&transfer.token_mint)
+                .push_bind(&transfer.token_program)
+                .push_bind(BigDecimal::from(transfer.amount_raw))
+                .push_bind(transfer.amount_ui.and_then(BigDecimal::from_f64))
+                .push_bind(transfer.decimals.map(i32::from))
+                .push_bind(&transfer.asset_type)
+                .push_bind(&transfer.transfer_type)
+                .push_bind(&transfer.direction)
+                .push_bind(transfer.instruction_idx)
+                .push_bind(transfer.inner_idx)
+                .push_bind(&transfer.authority)
+                .push_bind(i64::from(tx.slot))
+                .push_bind(i64::from(tx.block_time));
+        });
+        query_builder.push("ON CONFLICT DO NOTHING");
+
+        let query = query_builder.build();
+        let result = query.execute(&self.pool).await?;
+        let inserted = result.rows_affected();
+        debug!(
+            inserted,
+            elapsed_ms = started.elapsed().as_millis(),
+            "Token transfers inserted"
+        );
+
+        Ok(inserted)
+    }
+
+    #[instrument(skip(self, transaction_info), fields(address = %mask_addr(address), input_count = transaction_info.len()))]
+    pub async fn save_transaction_data(
+        &self,
+        transaction_info: &[TransactionResult],
+        address: &str,
+    ) -> Result<SaveStats> {
+        if transaction_info.is_empty() {
+            debug!("No transaction payload to save");
+            return Ok(SaveStats {
+                transactions: 0,
+                token_transfers: 0,
+            });
+        }
+
+        let started = Instant::now();
+        let transactions = self
+            .write_transaction_info(transaction_info, address)
+            .await?;
+        let token_transfers = self
+            .write_token_transfers(transaction_info, address)
+            .await?;
+        info!(
+            transactions,
+            token_transfers,
+            elapsed_ms = started.elapsed().as_millis(),
+            "Transaction data saved"
+        );
+
+        Ok(SaveStats {
+            transactions,
+            token_transfers,
+        })
+    }
+}
