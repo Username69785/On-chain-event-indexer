@@ -38,7 +38,6 @@ export function initModal() {
             clearInputBtn?.classList.add('hidden');
         }
         
-        // Disable submit until it looks at least loosely like an address
         if (isAddressLike(val) && val.length > 30) {
             submitBtn.disabled = false;
         } else {

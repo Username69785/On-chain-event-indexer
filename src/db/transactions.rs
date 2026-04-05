@@ -98,7 +98,6 @@ impl Transactions {
         }
         let started = Instant::now();
 
-        // Сохраняем распарсенные transfer-поля по схеме token_transfers
         let mut query_builder: QueryBuilder<sqlx::Postgres> = QueryBuilder::new(
             "INSERT INTO token_transfers
             (tracked_owner, signature, source_owner, destination_owner, source_token_account, destination_token_account, token_mint, token_program, amount_raw, amount_ui, decimals, asset_type, transfer_type, direction, instruction_idx, inner_idx, authority, slot, block_time)",

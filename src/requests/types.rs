@@ -58,7 +58,6 @@ impl RpcError {
 pub struct TransactionResult {
     pub result: TransactionInfo,
 
-    /// Изменения балансов SPL токенов (рассчитывается после десериализации)
     #[serde(skip)]
     pub token_transfer_changes: Vec<TokenTransferChange>,
 }
@@ -89,8 +88,8 @@ pub struct TransactionBatch {
 #[serde(rename_all = "camelCase")]
 pub struct TransactionInfo {
     pub block_time: i32,
-    pub meta: Meta,               // err, compute_units_consumed, fee
-    pub transaction: Transaction, //signatures
+    pub meta: Meta,
+    pub transaction: Transaction,
     pub slot: i32,
 }
 
@@ -103,17 +102,13 @@ pub struct Meta {
     #[serde(default)]
     pub err: Value,
 
-    /// Доп. адреса из Address Lookup Tables (для versioned tx)
     #[serde(default)]
     pub loaded_addresses: Option<LoadedAddresses>,
 
-    /// Внутренние инструкции (CPI), приходят только в jsonParsed
     #[serde(default)]
     pub inner_instructions: Vec<InnerInstructions>,
 
-    /// Балансы SPL токенов ДО транзакции
     pub pre_token_balances: Vec<TokenBalance>,
-    /// Балансы SPL токенов ПОСЛЕ транзакции
     pub post_token_balances: Vec<TokenBalance>,
 }
 
@@ -127,7 +122,7 @@ pub struct LoadedAddresses {
 #[derive(Deserialize, Debug)]
 pub struct Transaction {
     pub signatures: Vec<String>,
-    pub message: AccountKeys, // keys
+    pub message: AccountKeys,
 }
 
 #[derive(Deserialize, Debug, Clone)]
@@ -141,7 +136,6 @@ pub struct AccountKeys {
     #[serde(rename = "accountKeys")]
     keys: Vec<AccountKey>,
 
-    /// Инструкции верхнего уровня (jsonParsed)
     #[serde(default)]
     pub instructions: Vec<Instruction>,
 
@@ -149,11 +143,9 @@ pub struct AccountKeys {
     pub header: Option<MessageHeader>,
 }
 
-/// Инструкция из jsonParsed (верхняя/inner)
 #[derive(Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct Instruction {
-    /// Распарсенная инструкция (если программа известна)
     #[serde(default, deserialize_with = "deserialize_parsed_instruction_opt")]
     pub parsed: Option<ParsedInstruction>,
     #[serde(default)]
@@ -183,7 +175,6 @@ where
     Ok(parsed)
 }
 
-/// Поля parsed.info, которые нужны для transfer/mint/burn
 #[derive(Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct ParsedInfo {
@@ -247,52 +238,22 @@ pub struct UiTokenAmount {
     pub ui_amount: Option<f64>,
 }
 
-/// Изменение баланса токена для конкретного аккаунта
 #[derive(Debug, Clone)]
 pub struct TokenTransferChange {
-    /// Адрес токена (mint)
     pub token_mint: Option<String>,
-
-    /// Программа токена (SPL/Token-2022)
     pub token_program: Option<String>,
-
-    /// Владелец (кошелёк) отправителя
     pub source_owner: Option<String>,
-
-    /// Владелец получателя
     pub destination_owner: Option<String>,
-
-    /// Для SPL: токен-аккаунт отправителя
     pub source_token_account: Option<String>,
-
-    /// Для SPL: токен-аккаунт получателя
     pub destination_token_account: Option<String>,
-
-    /// Количество токенов в base units, всегда положительное
     pub amount_raw: i128,
-
-    /// Удобное отображение (base units -> UI)
     pub amount_ui: Option<f64>,
-
-    /// Количество десятичных знаков
     pub decimals: Option<u8>,
-
-    /// Тип операции (transfer/mint/burn/unknown)
     pub transfer_type: String,
-
-    /// Тип актива (native/spl)
     pub asset_type: String,
-
-    /// Направление относительно `tracked_owner`
     pub direction: String,
-
-    /// Кто авторизовал (часто важно для SPL)
     pub authority: Option<String>,
-
-    /// Индекс инструкции
     pub instruction_idx: Option<i32>,
-
-    /// Индекс inner-инструкции (если CPI)
     pub inner_idx: Option<i32>,
 }
 
@@ -321,7 +282,6 @@ impl TransactionResult {
         keys
     }
 
-    /// Собирает перемещения токенов и SOL из jsonParsed инструкций.
     pub fn calculate_token_transfer(&mut self) {
         let mut transfers: Vec<TokenTransferChange> = Vec::new();
         let token_account_meta = self.token_account_meta_map();
@@ -368,12 +328,10 @@ impl TransactionResult {
         const SYSTEM_PROGRAM: &str = "11111111111111111111111111111111";
         const TOKEN_PROGRAM: &str = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA";
 
-        // 1. Получаем распарсенные данные (если есть)
         let Some(parsed) = &instruction.parsed else {
             return;
         };
 
-        // 2. Проверяем тип инструкции: нас интересуют только transfer/mint/burn
         let transfer_type_raw = parsed.instruction_type.as_str();
         let is_relevant_transfer = matches!(
             transfer_type_raw,
@@ -383,7 +341,6 @@ impl TransactionResult {
             return;
         }
 
-        // 3. Определяем программу (SPL или System/Native)
         let program_id = instruction.program_id.as_deref();
         let program = instruction.program.as_deref();
         let is_system = program_id == Some(SYSTEM_PROGRAM) || program == Some("system");
@@ -525,7 +482,7 @@ impl TransactionResult {
         if amount_ui.is_none()
             && let Some(decimals) = decimals
         {
-            #[allow(clippy::cast_precision_loss)] // for display purposes only
+            #[allow(clippy::cast_precision_loss)]
             let amount_f64 = amount_raw as f64;
             amount_ui = Some(amount_f64 / 10f64.powi(i32::from(decimals)));
         }
@@ -549,7 +506,6 @@ impl TransactionResult {
         })
     }
 
-    /// Быстрый маппинг token-account -> {owner, mint, decimals} из pre/post балансов.
     pub fn token_account_meta_map(&self) -> HashMap<String, TokenAccountMeta> {
         let keys = self.all_account_keys();
         let mut map = HashMap::new();

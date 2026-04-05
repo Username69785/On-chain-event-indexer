@@ -68,8 +68,8 @@ pub struct HeliusApi {
     api: String,
     url: String,
     client: Client,
-    rate_limiter: Arc<GlobalRateLimiter>, // Лимитер RPS
-    semaphore: Arc<Semaphore>,            // Ограничения одновременных запросов
+    rate_limiter: Arc<GlobalRateLimiter>,
+    semaphore: Arc<Semaphore>,
     rate_limit_backoff: Arc<Mutex<WorkerBackoff>>,
     rate_limit_until: Arc<Mutex<Option<Instant>>>,
     last_rate_limit_at: Arc<Mutex<Option<Instant>>>,
@@ -326,7 +326,6 @@ impl HeliusApi {
                 .append(&mut chunk.failed_signatures);
             total_batch.errors.append(&mut chunk.errors);
 
-            // Small pause between chunks to avoid bursting into rate limits
             sleep(Duration::from_millis(100)).await;
         }
 
@@ -585,7 +584,6 @@ impl HeliusApi {
 
         drop(rate_limit_until);
 
-        // Track when we last saw a rate limit
         let mut last_rl = self.last_rate_limit_at.lock().await;
         *last_rl = Some(Instant::now());
 
@@ -606,8 +604,6 @@ impl HeliusApi {
         };
 
         if !cooldown_active {
-            // Only reset backoff if no rate limit was seen for at least 5 seconds;
-            // prevents premature reset when parallel workers get interleaved successes
             let should_reset = {
                 let last_rl = self.last_rate_limit_at.lock().await;
                 last_rl.is_none_or(|at| at.elapsed() > Duration::from_secs(5))

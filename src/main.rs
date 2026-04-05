@@ -155,7 +155,6 @@ async fn fetching_signatures(
 
         let sync_started = Instant::now();
         loop {
-            // Сбор всех подписей
             debug!(before = ?cur_last_signature, "Fetching signatures page");
             let page_started = Instant::now();
             let signatures_page = helius_api

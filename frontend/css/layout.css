@@ -8,7 +8,6 @@ body {
     padding: 0;
 }
 
-/* Background Grid Effect */
 .background-grid {
     position: absolute;
     top: 0;
@@ -25,7 +24,6 @@ body {
     -webkit-mask-image: radial-gradient(circle at center, black 30%, transparent 80%);
 }
 
-/* Background Glow Effect */
 .background-glow {
     position: absolute;
     width: 800px;
@@ -44,21 +42,20 @@ body {
     --sidebar-width: 320px;
 }
 
-/* App Layout Container */
 .app-layout {
     position: relative;
     z-index: 1;
     width: 100%;
     height: 100vh;
     display: grid;
-    grid-template-columns: 1fr; /* Defaults to single column */
+    grid-template-columns: 1fr;
     overflow: hidden;
     gap: 0;
-    transition: grid-template-columns 0.3s ease; /* changed from all */
+    transition: grid-template-columns 0.3s ease;
 }
 
 .app-layout.is-resizing {
-    transition: none; /* disable transition while dragging */
+    transition: none;
 }
 
 .app-layout.has-sidebar {

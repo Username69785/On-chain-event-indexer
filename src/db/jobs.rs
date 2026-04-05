@@ -22,9 +22,6 @@ impl Jobs {
         Self { pool }
     }
 
-    /// Атомарно берёт одну задачу со статусом `pending` из `processing_data`,
-    /// переводит её в `indexing`, присваивает `worker_id` и возвращает `job_id + address`.
-    /// Если подходящих строк нет — возвращает `None`.
     #[instrument(skip(self), fields(worker_id))]
     pub async fn claim_pending_job(&self, worker_id: u32) -> Result<Option<ClaimedJob>> {
         let started = Instant::now();

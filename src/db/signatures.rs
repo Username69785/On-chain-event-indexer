@@ -17,8 +17,6 @@ impl Signatures {
         Self { pool }
     }
 
-    /// Получает пачку подписей, которые еще не были обработаны (`is_processed` = false).
-    /// Отметка как обработанных выполняется отдельным шагом после успешной обработки.
     #[instrument(skip(self), fields(address = %mask_addr(address), limit))]
     pub async fn get_unprocessed_signatures(
         &self,

@@ -129,7 +129,6 @@ export function renderMainArea() {
                     ${shortAddr}
                 </h1>
                 
-                <!-- Action Buttons right next to title -->
                 <div style="display:flex; gap:8px;">
                     <button class="action-btn" id="copyBtn" title="Copy Address">
                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -151,20 +150,16 @@ export function renderMainArea() {
         </div>
         
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
-            <!-- Left Card -->
             <div class="card" style="background: rgba(255, 255, 255, 0.02); border: 1px solid rgba(255, 255, 255, 0.04); border-radius: 16px; padding: 20px 24px; display: flex; flex-direction: column; height: 100%; transition: border-color 0.2s ease;">
-                <!-- Top Level -->
                 <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 20px;">
                     <h3 style="font-size: 13px; font-weight: 500; letter-spacing: 0.07em; color: #94A3B8; text-transform: uppercase; margin: 0;">Transactions Stats</h3>
                     <span style="font-size: 24px; font-weight: 600; font-family: var(--font-mono); color: #F8FAFC; line-height: 1;">${percent}%</span>
                 </div>
                 
-                <!-- Middle Level (Progress bar) -->
                 <div style="height: 4px; background: rgba(255, 255, 255, 0.05); border-radius: 4px; overflow: hidden; width: 100%; margin-bottom: 32px;">
                     <div style="height: 100%; box-shadow: 0 0 10px rgba(59, 130, 246, 0.5); background: var(--accent-primary); width: ${percent}%; border-radius: 4px; transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);"></div>
                 </div>
 
-                <!-- Bottom Level (Stats) -->
                 <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-top: auto;">
                     <div style="display: flex; flex-direction: column; gap: 8px;">
                         <span style="font-family: var(--font-mono); font-size: 24px; font-weight: 600; color: #F8FAFC; line-height: 1;">${totalTransactions}</span>
@@ -181,18 +176,14 @@ export function renderMainArea() {
                 </div>
             </div>
 
-            <!-- Right Card: Indexing Details -->
             <div class="card" style="background: rgba(255, 255, 255, 0.02); border: 1px solid rgba(255, 255, 255, 0.04); border-radius: 16px; padding: 20px 24px; display: flex; flex-direction: column; height: 100%; transition: border-color 0.2s ease;">
-                <!-- Top Level -->
                 <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 20px;">
                     <h3 style="font-size: 13px; font-weight: 500; letter-spacing: 0.07em; color: #94A3B8; text-transform: uppercase; margin: 0;">Indexing Details</h3>
                     <span style="font-size: 24px; font-weight: 600; font-family: var(--font-mono); visibility: hidden; line-height: 1;">0%</span>
                 </div>
                 
-                <!-- Invisible progress bar skeleton to preserve exact visual alignment -->
                 <div style="height: 4px; width: 100%; margin-bottom: 32px;"></div>
                 
-                <!-- Bottom Level (Stats) -->
                 <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-top: auto;">
                     <div style="display: flex; flex-direction: column; gap: 8px;">
                         <span style="font-family: var(--font-mono); font-size: 24px; font-weight: 600; color: #F8FAFC; line-height: 1;">${speedLabel}</span>
