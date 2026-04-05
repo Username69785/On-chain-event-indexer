@@ -34,24 +34,20 @@ pub struct JobInfo {
 pub async fn create_server(pool: PgPool) -> Result<()> {
     info!("Starting API server initialization");
 
-    // Разрешаем cors
     let cors = CorsLayer::new()
         .allow_origin("http://127.0.0.1:5500".parse::<http::HeaderValue>()?)
         .allow_methods(Any)
         .allow_headers(Any);
 
-    // Создаем роутер
     let app = Router::new()
         .route("/analyze", post(address_processing))
         .route("/jobs/{id}", get(get_job_info))
         .layer(cors)
         .with_state(pool);
 
-    // Создаем TCP listener
     let listener = tokio::net::TcpListener::bind("127.0.0.1:8080").await?;
     info!(address = "127.0.0.1:8080", "API listener bound");
 
-    // Запускаем сервер
     info!("API server is running");
     axum::serve(listener, app).await?;
 

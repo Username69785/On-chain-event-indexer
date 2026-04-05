@@ -10,21 +10,17 @@ export function initResizer() {
         isResizing = true;
         appLayout.classList.add('is-resizing');
         document.body.style.cursor = 'col-resize';
-        // Prevent text selection during drag
         e.preventDefault();
     });
 
     document.addEventListener('mousemove', (e) => {
         if (!isResizing) return;
         
-        // Calculate new width
-        let newWidth = e.clientX; // Because sidebar is hugging the left edge, width is essentially clientX
+        let newWidth = e.clientX;
         
-        // Boundaries
-        if (newWidth < 220) newWidth = 220; // Min width
-        if (newWidth > 600) newWidth = 600; // Max width
+        if (newWidth < 220) newWidth = 220;
+        if (newWidth > 600) newWidth = 600;
         
-        // Store it as a CSS variable on the root or app layout
         document.documentElement.style.setProperty('--sidebar-width', `${newWidth}px`);
     });
 

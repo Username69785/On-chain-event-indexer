@@ -19,7 +19,6 @@ export function showGlobalToast(message) {
     toast.textContent = message;
     toast.classList.add('show');
     
-    // Clear previous timeout if exists
     if (toast.timeoutId) clearTimeout(toast.timeoutId);
     
     toast.timeoutId = setTimeout(() => {

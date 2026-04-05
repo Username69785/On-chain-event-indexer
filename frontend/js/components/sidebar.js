@@ -53,7 +53,6 @@ export function renderSidebar() {
         addressList.appendChild(el);
     });
 
-    // Toggle sidebar visibility and layout based on address count
     const sidebar = document.getElementById('appSidebar');
     const appLayout = document.querySelector('.app-layout');
     const resizer = document.getElementById('appResizer');

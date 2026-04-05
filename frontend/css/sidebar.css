@@ -1,4 +1,3 @@
-/* Sidebar Component */
 .sidebar {
     display: flex;
     flex-direction: column;
@@ -118,7 +117,7 @@
 }
 
 .delete-btn:hover {
-    color: #ef4444; /* red 500 */
+    color: #ef4444;
     background: rgba(239, 68, 68, 0.1);
 }
 
@@ -159,12 +158,12 @@
 
 .status-indicator.ready,
 .status-indicator.done {
-    background: #10B981; /* Emerald 500 */
+    background: #10B981;
     box-shadow: 0 0 10px rgba(16, 185, 129, 0.5);
 }
 
 .status-indicator.error {
-    background: #EF4444; /* Red 500 */
+    background: #EF4444;
     box-shadow: 0 0 10px rgba(239, 68, 68, 0.5);
 }
 

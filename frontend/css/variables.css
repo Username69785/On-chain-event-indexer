@@ -1,13 +1,13 @@
 :root {
-    --bg-color: #0F172A; /* Slate 900 */
-    --surface-color: #1E293B; /* Slate 800 */
-    --surface-hover: #334155; /* Slate 700 */
+    --bg-color: #0F172A;
+    --surface-color: #1E293B;
+    --surface-hover: #334155;
     --text-primary: #F8FAFC;
     --text-secondary: #94A3B8;
-    --accent-primary: #3B82F6; /* Blue 500 */
-    --accent-hover: #2563EB; /* Blue 600 */
+    --accent-primary: #3B82F6;
+    --accent-hover: #2563EB;
     --input-bg: rgba(15, 23, 42, 0.5);
-    --border-color: transparent; /* Removing borders */
+    --border-color: transparent;
     --font-family: 'Inter', sans-serif;
     --font-mono: 'Space Grotesk', monospace;
 }

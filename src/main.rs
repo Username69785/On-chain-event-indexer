@@ -86,14 +86,14 @@ async fn worker_loop(app_state: Arc<AppState>, worker_id: u32) -> Result<()> {
         let tx_limit = claimed_job.tx_limit;
 
         let processing_result: Result<()> = async {
-            fetching_signatures(
+            fetch_signatures(
                 &app_state,
                 &address,
                 tx_limit.to_usize().unwrap_or(1000),
                 requested_hours,
             )
             .await?;
-            fetched_unprocessed_signatures(&app_state, &address).await?;
+            process_unprocessed_signatures(&app_state, &address).await?;
             Ok(())
         }
         .await;
@@ -137,7 +137,7 @@ async fn worker_loop(app_state: Arc<AppState>, worker_id: u32) -> Result<()> {
     }
 }
 
-async fn fetching_signatures(
+async fn fetch_signatures(
     app_state: &AppState,
     address: &str,
     tx_limit: usize,
@@ -155,7 +155,6 @@ async fn fetching_signatures(
 
         let sync_started = Instant::now();
         loop {
-            // Сбор всех подписей
             debug!(before = ?cur_last_signature, "Fetching signatures page");
             let page_started = Instant::now();
             let signatures_page = helius_api
@@ -203,7 +202,7 @@ async fn fetching_signatures(
     .await
 }
 
-async fn fetched_unprocessed_signatures(app_state: &AppState, address: &str) -> Result<()> {
+async fn process_unprocessed_signatures(app_state: &AppState, address: &str) -> Result<()> {
     let database = &app_state.database;
     let helius_api = &app_state.helius_api;
 

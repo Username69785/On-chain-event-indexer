@@ -1,4 +1,3 @@
-/* Forms, Inputs, Buttons */
 .input-group {
     display: flex;
     flex-direction: column;
@@ -97,7 +96,6 @@ input:focus {
     transform: translateX(4px);
 }
 
-/* Filters UI */
 .filters-container {
     display: flex;
     flex-direction: column;
@@ -129,7 +127,7 @@ input:focus {
     background: rgba(255, 255, 255, 0.04);
     border: none;
     border-radius: 8px;
-    color: #CBD5E1; /* Muted but bright enough Slate 300 */
+    color: #CBD5E1;
     font-size: 0.85rem;
     font-weight: 500;
     cursor: pointer;
@@ -150,7 +148,6 @@ input:focus {
     box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
 }
 
-/* Status Notifications */
 .status-message {
     padding: 12px;
     border-radius: 8px;

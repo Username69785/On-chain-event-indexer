@@ -25,7 +25,6 @@ impl WorkerBackoff {
         let delay_ms = self.current_delay;
         let half_delay = delay_ms / 2.0;
 
-        // Equal jitter: половина фиксированная + половина рандомная
         let jitter = if half_delay > 0.0 {
             rand::random_range(0.0..half_delay)
         } else {
@@ -33,7 +32,6 @@ impl WorkerBackoff {
         };
         let sleep_ms = (half_delay + jitter).max(1.0);
 
-        // Увеличиваем задержку для следующего вызова
         self.current_delay = (delay_ms * self.multiplier)
             .round()
             .max(self.min_delay)

@@ -68,8 +68,8 @@ pub struct HeliusApi {
     api: String,
     url: String,
     client: Client,
-    rate_limiter: Arc<GlobalRateLimiter>, // Лимитер RPS
-    semaphore: Arc<Semaphore>,            // Ограничения одновременных запросов
+    rate_limiter: Arc<GlobalRateLimiter>,
+    semaphore: Arc<Semaphore>,
     rate_limit_backoff: Arc<Mutex<WorkerBackoff>>,
     rate_limit_until: Arc<Mutex<Option<Instant>>>,
     last_rate_limit_at: Arc<Mutex<Option<Instant>>>,
@@ -104,10 +104,10 @@ impl HeliusApi {
         })
     }
 
-    #[instrument(target = "client", skip(self), fields(address = %mask_addr(adress), before = ?last_signature))]
+    #[instrument(target = "client", skip(self), fields(address = %mask_addr(address), before = ?last_signature))]
     pub async fn get_signatures(
         &self,
-        adress: &str,
+        address: &str,
         last_signature: Option<String>,
         requested_hours: i16,
     ) -> Result<SignaturesPage> {
@@ -116,7 +116,7 @@ impl HeliusApi {
             "id": "1",
             "method": "getSignaturesForAddress",
             "params": [
-                adress,
+                address,
                 {
                     "before": last_signature.as_deref(),
                     "max_supported_transaction_version": 0,
@@ -139,7 +139,7 @@ impl HeliusApi {
                         let delay = self.register_rate_limit(response.retry_after).await;
                         warn!(
                             target: "client",
-                            address = %mask_addr(adress),
+                            address = %mask_addr(address),
                             status = ?status,
                             attempt,
                             max_attempts = MAX_RATE_LIMIT_RETRIES + 1,
@@ -160,7 +160,7 @@ impl HeliusApi {
                     let delay = self.register_rate_limit(response.retry_after).await;
                     warn!(
                         target: "client",
-                        address = %mask_addr(adress),
+                        address = %mask_addr(address),
                         status = ?status,
                         rpc_code = rpc_error.code,
                         attempt,
@@ -232,7 +232,7 @@ impl HeliusApi {
 
         let chunk_responses = stream::iter(signatures.iter().cloned())
             .map(|signature| async move { self.fetch_transaction_by_signature(signature).await })
-            .buffered(1)
+            .buffered(5)
             .collect::<Vec<_>>()
             .await;
 
@@ -326,7 +326,6 @@ impl HeliusApi {
                 .append(&mut chunk.failed_signatures);
             total_batch.errors.append(&mut chunk.errors);
 
-            // Small pause between chunks to avoid bursting into rate limits
             sleep(Duration::from_millis(100)).await;
         }
 
@@ -585,7 +584,6 @@ impl HeliusApi {
 
         drop(rate_limit_until);
 
-        // Track when we last saw a rate limit
         let mut last_rl = self.last_rate_limit_at.lock().await;
         *last_rl = Some(Instant::now());
 
@@ -606,8 +604,6 @@ impl HeliusApi {
         };
 
         if !cooldown_active {
-            // Only reset backoff if no rate limit was seen for at least 5 seconds;
-            // prevents premature reset when parallel workers get interleaved successes
             let should_reset = {
                 let last_rl = self.last_rate_limit_at.lock().await;
                 last_rl.is_none_or(|at| at.elapsed() > Duration::from_secs(5))
