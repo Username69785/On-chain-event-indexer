@@ -6,10 +6,10 @@ use tokio::time::{Duration, sleep};
 use tracing::{Instrument, debug, info, warn};
 
 mod requests;
-use requests::{HeliusApi, RpcResponse, TokenTransferChange, TransactionInfo, TransactionResult};
+use requests::HeliusApi;
 
 mod db;
-use db::*;
+use db::{ClaimedJob, Database};
 
 mod frontend;
 use frontend::create_server;
@@ -30,11 +30,11 @@ async fn main() -> Result<()> {
     telemetry::init()?;
 
     let app_state = Arc::new(AppState {
-        database: Database::new_pool().await?,
+        database: db::Database::new().await?,
         helius_api: HeliusApi::new(8, 2)?,
     });
 
-    let server_handle = tokio::spawn(create_server(app_state.database.pool.clone()));
+    let server_handle = tokio::spawn(create_server(app_state.database.jobs.pool.clone()));
 
     let mut worker_handles: Vec<JoinHandle<Result<()>>> = Vec::new();
     for worker_id in 1..5 {
@@ -61,7 +61,7 @@ async fn worker_loop(app_state: Arc<AppState>, worker_id: u32) -> Result<()> {
     loop {
         let started = Instant::now();
         let claimed_job: ClaimedJob = loop {
-            let claimed_job = app_state.database.claim_pending_job(worker_id).await;
+            let claimed_job = app_state.database.jobs.claim_pending_job(worker_id).await;
 
             match claimed_job {
                 Ok(Some(job)) => {
@@ -102,6 +102,7 @@ async fn worker_loop(app_state: Arc<AppState>, worker_id: u32) -> Result<()> {
             Ok(()) => {
                 if let Err(err) = app_state
                     .database
+                    .jobs
                     .update_processing_status_by_job_id(job_id, "ready")
                     .await
                 {
@@ -122,6 +123,7 @@ async fn worker_loop(app_state: Arc<AppState>, worker_id: u32) -> Result<()> {
                 warn!(%err, worker_id, job_id, "Indexer failed for {}", &address);
                 if let Err(status_err) = app_state
                     .database
+                    .jobs
                     .update_processing_status_by_job_id(job_id, "error")
                     .await
                 {
@@ -175,6 +177,7 @@ async fn fetching_signatures(
             );
 
             let inserted = database
+                .signatures
                 .write_signatures(&signatures_page.response, address)
                 .await?;
             debug!(inserted, "Signatures saved");
@@ -208,7 +211,10 @@ async fn fetched_unprocessed_signatures(app_state: &AppState, address: &str) -> 
     let helius_api = &app_state.helius_api;
 
     loop {
-        let signatures = database.get_unprocessed_signatures(address, 100).await?;
+        let signatures = database
+            .signatures
+            .get_unprocessed_signatures(address, 100)
+            .await?;
         info!(count = signatures.len(), "Fetched unprocessed signatures");
 
         if signatures.len().is_zero() {
@@ -234,9 +240,11 @@ async fn fetched_unprocessed_signatures(app_state: &AppState, address: &str) -> 
 
         let save_started = Instant::now();
         let save_stats = database
+            .transactions
             .save_transaction_data(&transaction_batch.transactions, address)
             .await?;
         let marked_processed = database
+            .signatures
             .mark_signatures_processed(address, &transaction_batch.processed_signatures)
             .await?;
 
