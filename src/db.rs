@@ -10,7 +10,7 @@ use crate::requests::{RpcResponse, TransactionResult};
 use crate::types::{ClaimedJob, JobInfo, SaveStats};
 
 use anyhow::Result;
-use sqlx::{PgPool, postgres::PgPoolOptions};
+use sqlx::postgres::PgPoolOptions;
 use std::time::Instant;
 use tracing::{info, instrument};
 
@@ -18,7 +18,6 @@ pub struct Database {
     jobs: Jobs,
     signatures: Signatures,
     transactions: Transactions,
-    pool: PgPool,
 }
 
 impl Database {
@@ -38,15 +37,9 @@ impl Database {
         Ok(Self {
             jobs: Jobs::new(pool.clone()),
             signatures: Signatures::new(pool.clone()),
-            transactions: Transactions::new(pool.clone()),
-            pool,
+            transactions: Transactions::new(pool),
         })
     }
-
-    pub fn clone_pool(&self) -> PgPool {
-        self.pool.clone()
-    }
-
     pub async fn claim_pending_job(&self, worker_id: u32) -> Result<Option<ClaimedJob>> {
         self.jobs.claim_pending_job(worker_id).await
     }
