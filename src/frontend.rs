@@ -22,14 +22,6 @@ pub struct AddressProcessing {
     pub tx_limit: i16,
 }
 
-#[derive(Serialize, FromRow)]
-pub struct JobInfo {
-    pub status: String,
-    pub updated_at: chrono::DateTime<chrono::Utc>,
-    pub total_transactions: i64,
-    pub processed_transactions: i64,
-    pub remaining_transactions: i64,
-}
 
 pub async fn create_server(pool: PgPool) -> Result<()> {
     info!("Starting API server initialization");

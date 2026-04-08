@@ -1,3 +1,4 @@
+use crate::types::ClaimedJob;
 use anyhow::Result;
 use bigdecimal::{ToPrimitive, Zero};
 use std::{sync::Arc, time::Instant};
@@ -9,7 +10,7 @@ mod requests;
 use requests::HeliusApi;
 
 mod db;
-use db::{ClaimedJob, Database};
+use db::Database;
 
 mod frontend;
 use frontend::create_server;
@@ -19,6 +20,7 @@ use backoff::WorkerBackoff;
 
 mod logging;
 mod telemetry;
+mod types;
 
 struct AppState {
     database: Database,

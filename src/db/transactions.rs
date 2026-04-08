@@ -1,3 +1,4 @@
+use crate::types::SaveStats;
 use anyhow::Result;
 use bigdecimal::{BigDecimal, FromPrimitive};
 use sqlx::QueryBuilder;
@@ -10,11 +11,6 @@ use crate::requests::{TokenTransferChange, TransactionInfo, TransactionResult};
 
 pub struct Transactions {
     pool: PgPool,
-}
-
-pub struct SaveStats {
-    pub transactions: u64,
-    pub token_transfers: u64,
 }
 
 impl Transactions {

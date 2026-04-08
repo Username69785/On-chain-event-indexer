@@ -1,19 +1,11 @@
-use anyhow::Result;
-use sqlx::FromRow;
+use crate::types::{ClaimedJob, JobInfo};
+use anyhow::{Ok, Result};
 use sqlx::postgres::PgPool;
 use std::time::Instant;
 use tracing::{debug, instrument};
 
 pub struct Jobs {
     pool: PgPool,
-}
-
-#[derive(Debug, FromRow)]
-pub struct ClaimedJob {
-    pub job_id: i64,
-    pub address: String,
-    pub requested_hours: i16,
-    pub tx_limit: i16,
 }
 
 impl Jobs {
