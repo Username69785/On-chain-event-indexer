@@ -36,7 +36,7 @@ async fn main() -> Result<()> {
         helius_api: HeliusApi::new(8, 2)?,
     });
 
-    let server_handle = tokio::spawn(create_server(app_state.database.clone_pool()));
+    let server_handle = tokio::spawn(create_server(Arc::clone(&app_state)));
 
     let mut worker_handles: Vec<JoinHandle<Result<()>>> = Vec::new();
     for worker_id in 1..5 {

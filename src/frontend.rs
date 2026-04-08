@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use anyhow::Result;
 use axum::{
     Router,
@@ -8,10 +10,10 @@ use axum::{
 };
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-use sqlx::{FromRow, PgPool, Row};
 use tower_http::cors::{Any, CorsLayer};
 use tracing::{error, info, warn};
 
+use crate::AppState;
 use crate::logging::mask_addr;
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -22,8 +24,7 @@ pub struct AddressProcessing {
     pub tx_limit: i16,
 }
 
-
-pub async fn create_server(pool: PgPool) -> Result<()> {
+pub async fn create_server(app_state: Arc<AppState>) -> Result<()> {
     info!("Starting API server initialization");
 
     let cors = CorsLayer::new()
@@ -35,7 +36,7 @@ pub async fn create_server(pool: PgPool) -> Result<()> {
         .route("/analyze", post(address_processing))
         .route("/jobs/{id}", get(get_job_info))
         .layer(cors)
-        .with_state(pool);
+        .with_state(app_state);
 
     let listener = tokio::net::TcpListener::bind("127.0.0.1:8080").await?;
     info!(address = "127.0.0.1:8080", "API listener bound");
@@ -47,7 +48,7 @@ pub async fn create_server(pool: PgPool) -> Result<()> {
 }
 
 pub async fn address_processing(
-    State(pool): State<PgPool>,
+    State(app_state): State<Arc<AppState>>,
     Json(payload): Json<AddressProcessing>,
 ) -> impl IntoResponse {
     info!(
@@ -55,25 +56,13 @@ pub async fn address_processing(
         "Received address processing request"
     );
 
-    let requested_hours = payload.requested_hours;
-    let tx_limit = payload.tx_limit;
+    let result = app_state
+        .database
+        .create_processing_job(&payload.address, payload.tx_limit, payload.requested_hours)
+        .await;
 
-    let query = "INSERT INTO processing_data (address, status, created_at, updated_at, tx_limit, requested_hours)
-                 SELECT $1, 'pending', NOW(), NOW(), $2, $3
-                 WHERE NOT EXISTS (
-                     SELECT 1 FROM processing_data WHERE address = $1
-                 )
-                 RETURNING id";
-
-    match sqlx::query(query)
-        .bind(&payload.address)
-        .bind(tx_limit)
-        .bind(requested_hours)
-        .fetch_optional(&pool)
-        .await
-    {
-        Ok(Some(row)) => {
-            let id: i64 = row.get("id");
+    match result {
+        Ok(Some(id)) => {
             info!(job_id = id, "Processing job created");
             Json(json!({ "status": "ok", "job_id": id })).into_response()
         }
@@ -91,29 +80,14 @@ pub async fn address_processing(
     }
 }
 
-pub async fn get_job_info(State(pool): State<PgPool>, Path(id): Path<i64>) -> impl IntoResponse {
+pub async fn get_job_info(
+    State(app_state): State<Arc<AppState>>,
+    Path(id): Path<i64>,
+) -> impl IntoResponse {
     info!(job_id = id, "Received job info request");
-    let query = "
-        SELECT
-            pd.status,
-            pd.updated_at,
-            COUNT(s.signature)::bigint AS total_transactions,
-            COUNT(*) FILTER (WHERE s.is_processed = TRUE)::bigint AS processed_transactions,
-            (
-                COUNT(s.signature) - COUNT(*) FILTER (WHERE s.is_processed = TRUE)
-            )::bigint AS remaining_transactions
-        FROM processing_data pd
-        LEFT JOIN signatures s
-            ON s.owner_address = pd.address
-        WHERE pd.id = $1
-        GROUP BY pd.status, pd.updated_at
-    ";
+    let result = app_state.database.get_job_info(id).await;
 
-    match sqlx::query_as::<_, JobInfo>(query)
-        .bind(id)
-        .fetch_optional(&pool)
-        .await
-    {
+    match result {
         Ok(Some(job_info)) => {
             info!(
                 job_id = id,

@@ -94,4 +94,19 @@ impl Database {
             .save_transaction_data(transaction_info, address)
             .await
     }
+
+    pub async fn get_job_info(&self, job_id: i64) -> Result<Option<JobInfo>> {
+        self.jobs.get_job_info(job_id).await
+    }
+
+    pub async fn create_processing_job(
+        &self,
+        address: &str,
+        tx_limit: i16,
+        requested_hours: i16,
+    ) -> Result<Option<i64>> {
+        self.jobs
+            .create_processing_job(address, tx_limit, requested_hours)
+            .await
+    }
 }
