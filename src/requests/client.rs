@@ -1,7 +1,7 @@
 use std::time::{Duration, Instant};
 
 use anyhow::{Result, anyhow};
-use chrono::Utc;
+use chrono::{DateTime, Utc};
 use futures::{StreamExt, stream};
 use governor::{
     Quota, RateLimiter,
@@ -185,7 +185,7 @@ impl HeliusApi {
             })?;
             let raw_count = result.len();
             let last_signature = result.last().map(|last| last.signature.clone());
-            let recent_signatures = take_recent_signatures(result, requested_hours);
+            let recent_signatures = take_recent_signatures(&result, requested_hours);
             let filtered_count = recent_signatures.signatures.len();
 
             debug!(
@@ -617,25 +617,33 @@ impl HeliusApi {
     }
 
     fn parse_retry_after(headers: &HeaderMap) -> Option<Duration> {
+        Self::parse_retry_after_at(headers, Utc::now().timestamp())
+    }
+
+    fn parse_retry_after_at(headers: &HeaderMap, now_ts: i64) -> Option<Duration> {
         let value = headers.get(RETRY_AFTER)?;
         let value = value.to_str().ok()?.trim();
+
+        if let Ok(date) = DateTime::parse_from_rfc2822(value) {
+            let secs = u64::try_from(date.timestamp() - now_ts).unwrap_or(0u64);
+            return Some(Duration::from_secs(secs));
+        }
+
         let seconds = value.parse::<u64>().ok()?;
         Some(Duration::from_secs(seconds))
     }
 
     fn body_snippet(body: &str) -> String {
         const MAX_CHARS: usize = 200;
-        let mut snippet = String::new();
 
-        for ch in body.chars().take(MAX_CHARS) {
-            if ch == '\n' || ch == '\r' {
-                snippet.push(' ');
-            } else {
-                snippet.push(ch);
-            }
-        }
+        let mut chars = body.chars();
+        let mut snippet: String = chars
+            .by_ref()
+            .take(MAX_CHARS)
+            .map(|ch| if ch == '\n' || ch == '\r' { ' ' } else { ch })
+            .collect();
 
-        if body.chars().nth(MAX_CHARS).is_some() {
+        if chars.next().is_some() {
             snippet.push_str("...");
         }
 
@@ -644,7 +652,7 @@ impl HeliusApi {
 }
 
 fn take_recent_signatures(
-    signatures: Vec<Signature>,
+    signatures: &[Signature],
     requested_hours: i16,
 ) -> RecentSignaturesResult {
     let cutoff_ts = Utc::now().timestamp() - i64::from(requested_hours.max(0)) * 3600;
@@ -655,7 +663,10 @@ fn take_recent_signatures(
 
     for sig in signatures {
         match sig.block_time {
-            Some(ts) if ts >= cutoff_ts => filtered.push(sig),
+            Some(ts) if ts >= cutoff_ts => filtered.push(Signature {
+                block_time: sig.block_time,
+                signature: sig.signature.clone(),
+            }),
             Some(_) => {
                 reached_cutoff = true;
                 break;
@@ -681,5 +692,237 @@ fn take_recent_signatures(
         signatures: filtered,
         reached_cutoff,
         skipped_null_block_time,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use pretty_assertions::assert_eq;
+
+    fn create_signature(signature: &str, ts: Option<i64>) -> Signature {
+        Signature {
+            block_time: ts,
+            signature: signature.to_string(),
+        }
+    }
+
+    #[test]
+    fn should_return_all_signatures_when_all_are_fresh() {
+        let now = Utc::now().timestamp();
+        let signatures = [
+            create_signature("sig-1", Some(now)),
+            create_signature("sig-2", Some(now - 60)),
+        ];
+
+        let result = take_recent_signatures(&signatures, 1);
+
+        assert_eq!(result.signatures.len(), 2);
+        assert_eq!(result.signatures[0].signature, "sig-1");
+        assert_eq!(result.signatures[1].signature, "sig-2");
+        assert!(!result.reached_cutoff);
+        assert_eq!(result.skipped_null_block_time, 0);
+    }
+
+    #[test]
+    fn should_break_when_old_signature_reaches_cutoff() {
+        let now = Utc::now().timestamp();
+        let signatures = [
+            create_signature("sig-1", Some(now)),
+            create_signature("sig-2", Some(now - 30)),
+            create_signature("sig-old", Some(now - 7200)),
+            create_signature("sig-after-old", Some(now)),
+        ];
+
+        let result = take_recent_signatures(&signatures, 1);
+
+        assert_eq!(result.signatures.len(), 2);
+        assert_eq!(result.signatures[0].signature, "sig-1");
+        assert_eq!(result.signatures[1].signature, "sig-2");
+        assert!(result.reached_cutoff);
+        assert_eq!(result.skipped_null_block_time, 0);
+    }
+
+    #[test]
+    fn should_skip_none_block_time_without_breaking_iteration() {
+        let now = Utc::now().timestamp();
+        let signatures = [
+            create_signature("sig-none-1", None),
+            create_signature("sig-fresh", Some(now - 60)),
+            create_signature("sig-none-2", None),
+            create_signature("sig-fresh-2", Some(now - 120)),
+        ];
+
+        let result = take_recent_signatures(&signatures, 1);
+
+        assert_eq!(result.signatures.len(), 2);
+        assert_eq!(result.signatures[0].signature, "sig-fresh");
+        assert_eq!(result.signatures[1].signature, "sig-fresh-2");
+        assert!(!result.reached_cutoff);
+        assert_eq!(result.skipped_null_block_time, 2);
+    }
+
+    #[test]
+    fn should_return_empty_result_for_empty_input() {
+        let signatures = [];
+
+        let result = take_recent_signatures(&signatures, 1);
+
+        assert!(result.signatures.is_empty());
+        assert!(!result.reached_cutoff);
+        assert_eq!(result.skipped_null_block_time, 0);
+    }
+
+    #[test]
+    fn should_treat_negative_hours_the_same_as_zero_hours() {
+        let now = Utc::now().timestamp();
+        let current_second = create_signature("sig-now", Some(now));
+        let previous_second = create_signature("sig-prev", Some(now - 1));
+        let signatures = [current_second, previous_second];
+
+        let zero_hours = take_recent_signatures(&signatures, 0);
+        let negative_hours = take_recent_signatures(&signatures, -1);
+
+        assert_eq!(zero_hours.signatures.len(), 1);
+        assert_eq!(zero_hours.signatures[0].signature, "sig-now");
+        assert!(zero_hours.reached_cutoff);
+
+        assert_eq!(negative_hours.signatures.len(), 1);
+        assert_eq!(negative_hours.signatures[0].signature, "sig-now");
+        assert!(negative_hours.reached_cutoff);
+    }
+
+    #[test]
+    fn should_truncate_text_to_max_length_and_add_ellipsis() {
+        let text = "X".repeat(250);
+        let result = HeliusApi::body_snippet(&text);
+
+        assert_eq!(result.len(), 203, "Incorrect length");
+        assert!(result.ends_with("..."), "No ellipsis ");
+    }
+
+    #[test]
+    fn should_remove_special_ch() {
+        let text = "text\n\ntext\r\rtext\n123\n\r";
+        let result = HeliusApi::body_snippet(text);
+
+        assert_eq!(
+            result, "text  text  text 123  ",
+            "Should replace newlines with spaces"
+        );
+        assert!(!result.contains('\r'));
+        assert!(!result.contains('\n'));
+    }
+
+    #[test]
+    fn should_not_change_the_short_text() {
+        let text = "Short text";
+        let result = HeliusApi::body_snippet(text);
+
+        assert_eq!(result, "Short text", "The text has been cut off too short");
+    }
+
+    #[test]
+    fn should_handle_exactly_limit_length_without_ellipsis() {
+        let text = "X".repeat(200);
+        let result = HeliusApi::body_snippet(&text);
+
+        assert!(!result.ends_with("..."));
+    }
+
+    #[test]
+    fn should_return_none_if_there_no_title() {
+        let map = HeaderMap::new();
+        let result = HeliusApi::parse_retry_after(&map);
+
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn should_return_some_duration_when_valid_integer_seconds() -> Result<()> {
+        let mut map = HeaderMap::new();
+        map.insert(RETRY_AFTER, "20".parse()?);
+
+        let result = HeliusApi::parse_retry_after(&map);
+        let correct_result = Duration::new(20, 0);
+
+        assert!(result.is_some());
+        assert_eq!(result, Some(correct_result));
+
+        Ok(())
+    }
+
+    #[test]
+    fn should_return_duration_when_header_contains_http_date_format() -> Result<()> {
+        let mut map = HeaderMap::new();
+        let retry_after = "Sat, 10 Apr 2027 09:20:20 GMT";
+        map.insert(RETRY_AFTER, retry_after.parse()?);
+
+        let now_ts = DateTime::parse_from_rfc2822("Sat, 10 Apr 2027 09:20:10 GMT")?.timestamp();
+        let result = HeliusApi::parse_retry_after_at(&map, now_ts);
+
+        assert_eq!(result, Some(Duration::from_secs(10)));
+
+        Ok(())
+    }
+
+    #[test]
+    fn should_return_none_when_header_contains_garbage_text() -> Result<()> {
+        let mut map = HeaderMap::new();
+        map.insert(RETRY_AFTER, "Aorstwymt 66654".parse()?);
+
+        let result = HeliusApi::parse_retry_after(&map);
+
+        assert!(result.is_none());
+
+        Ok(())
+    }
+
+    #[test]
+    fn should_return_none_when_header_is_empty_string() -> Result<()> {
+        let mut map = HeaderMap::new();
+        map.insert(RETRY_AFTER, "".parse()?);
+
+        let result = HeliusApi::parse_retry_after(&map);
+
+        assert!(result.is_none());
+
+        Ok(())
+    }
+
+    #[test]
+    fn should_return_none_when_header_contains_negative_number() -> Result<()> {
+        let mut map = HeaderMap::new();
+        map.insert(RETRY_AFTER, "-55".parse()?);
+
+        let result = HeliusApi::parse_retry_after(&map);
+
+        assert!(result.is_none());
+
+        Ok(())
+    }
+
+    #[test]
+    fn should_return_none_when_seconds_exceed_u64_max() -> Result<()> {
+        let mut map = HeaderMap::new();
+        map.insert(RETRY_AFTER, "9999999999999999999999999999".parse()?);
+
+        let result = HeliusApi::parse_retry_after(&map);
+
+        assert!(result.is_none());
+
+        Ok(())
+    }
+
+    #[test]
+    fn should_return_none_when_header_contains_float_number() -> Result<()> {
+        let mut map = HeaderMap::new();
+        map.insert(RETRY_AFTER, "24.46".parse()?);
+
+        let result = HeliusApi::parse_retry_after(&map);
+
+        assert!(result.is_none());
+
+        Ok(())
     }
 }
