@@ -1,33 +1,17 @@
-#![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used, clippy::panic))]
+use on_chain_event_indexer::{
+    AppState, backoff, db, frontend, logging, requests, telemetry, types,
+};
 
 use crate::types::ClaimedJob;
 use anyhow::Result;
+use backoff::WorkerBackoff;
 use bigdecimal::{ToPrimitive, Zero};
+use frontend::create_server;
+use requests::HeliusApi;
 use std::{sync::Arc, time::Instant};
 use tokio::task::JoinHandle;
 use tokio::time::{Duration, sleep};
 use tracing::{Instrument, debug, info, warn};
-
-mod requests;
-use requests::HeliusApi;
-
-mod db;
-use db::Database;
-
-mod frontend;
-use frontend::create_server;
-
-mod backoff;
-use backoff::WorkerBackoff;
-
-mod logging;
-mod telemetry;
-mod types;
-
-struct AppState {
-    database: Database,
-    helius_api: HeliusApi,
-}
 
 #[tokio::main]
 async fn main() -> Result<()> {
