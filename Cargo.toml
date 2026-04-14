@@ -53,3 +53,4 @@ panic = { level = "deny", priority = 1 }
 
 [dev-dependencies]
 pretty_assertions = { version = "1.4" }
+wiremock = "0.6"
