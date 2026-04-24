@@ -23,8 +23,8 @@ use crate::backoff::WorkerBackoff;
 use crate::logging::mask_addr;
 
 use super::types::{
-    RpcEnvelope, RpcResponse, Signature, TransactionBatch, TransactionFetchError, TransactionInfo,
-    TransactionResult,
+    ResponseField, RpcEnvelope, RpcResponse, Signature, TransactionBatch, TransactionFetchError,
+    TransactionInfo, TransactionResult,
 };
 
 const MAX_RATE_LIMIT_RETRIES: usize = 4;
@@ -98,7 +98,7 @@ impl HeliusApi {
             last_rate_limit_at,
         })
     }
-
+    #[allow(clippy::too_many_lines)]
     #[instrument(target = "client", skip(self), fields(address = %mask_addr(address), before = ?last_signature))]
     pub async fn get_signatures(
         &self,
@@ -175,9 +175,19 @@ impl HeliusApi {
                 ));
             }
 
-            let result = rpc_response.result.ok_or_else(|| {
-                anyhow!("missing result field in getSignaturesForAddress response")
-            })?;
+            let result = match rpc_response.result {
+                ResponseField::Value(result) => result,
+                ResponseField::Missing => {
+                    return Err(anyhow!(
+                        "missing result field in getSignaturesForAddress response"
+                    ));
+                }
+                ResponseField::Null => {
+                    return Err(anyhow!(
+                        "rpc result is null in getSignaturesForAddress response"
+                    ));
+                }
+            };
             let raw_count = result.len();
             let last_signature = result.last().map(|last| last.signature.clone());
             let recent_signatures = take_recent_signatures(&result, requested_hours);
@@ -476,16 +486,17 @@ impl HeliusApi {
             return FetchAttempt::Fatal(fetch_error);
         }
 
-        let Some(result_value) = rpc_response.result else {
+        let result_value = match rpc_response.result {
+            ResponseField::Value(result_value) => result_value,
+            ResponseField::Missing => {
             return FetchAttempt::Fatal(TransactionFetchError {
                 signature: signature.to_string(),
                 status_code: Some(status.as_u16()),
                 rpc_code: None,
                 message: String::from("missing result field in rpc response"),
             });
-        };
-
-        if result_value.is_null() {
+            }
+            ResponseField::Null => {
             return FetchAttempt::Fatal(TransactionFetchError {
                 signature: signature.to_string(),
                 status_code: Some(status.as_u16()),
@@ -493,6 +504,7 @@ impl HeliusApi {
                 message: String::from("rpc result is null"),
             });
         }
+        };
 
         let tx_info: TransactionInfo = match serde_json::from_value(result_value) {
             Ok(tx_info) => tx_info,

@@ -1,4 +1,5 @@
-use anyhow::Result;
+#[cfg(test)]
+use anyhow::Result as AnyResult;
 use serde::{Deserialize, de::Deserializer};
 use serde_json::Value;
 use std::collections::HashMap;
@@ -19,10 +20,31 @@ pub struct RpcResponse {
 #[derive(Deserialize, Debug)]
 pub struct RpcEnvelope<T> {
     #[serde(default)]
-    pub result: Option<T>,
+    pub result: ResponseField<T>,
 
     #[serde(default)]
     pub error: Option<RpcError>,
+}
+
+#[derive(Debug, Default)]
+pub enum ResponseField<T> {
+    #[default]
+    Missing,
+    Null,
+    Value(T),
+}
+
+impl<'de, T> Deserialize<'de> for ResponseField<T>
+where
+    T: Deserialize<'de>,
+{
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        (Option::<T>::deserialize(deserializer)?)
+            .map_or_else(|| Ok(Self::Null), |value| Ok(Self::Value(value)))
+    }
 }
 
 #[derive(Deserialize, Debug, Clone)]
@@ -569,24 +591,26 @@ mod tests {
     use pretty_assertions::assert_eq;
     use serde_json::error::Category;
 
-    fn parse_transaction_envelope(data: &str) -> Result<RpcEnvelope<Value>> {
+    fn parse_transaction_envelope(data: &str) -> AnyResult<RpcEnvelope<Value>> {
         Ok(serde_json::from_str(data)?)
     }
 
-    fn extract_transaction_info(response: RpcEnvelope<Value>) -> Result<TransactionInfo> {
-        let result = response.result.unwrap();
+    fn extract_transaction_info(response: RpcEnvelope<Value>) -> AnyResult<TransactionInfo> {
+        let ResponseField::Value(result) = response.result else {
+            anyhow::bail!("transaction fixture must contain a non-null result payload");
+        };
         Ok(serde_json::from_value(result)?)
     }
 
     #[test]
-    fn should_deserialize_success_response_when_valid_success_json() -> Result<()> {
+    fn should_deserialize_success_response_when_valid_success_json() -> AnyResult<()> {
         let data = include_str!("../../tests/fixtures/helius/signatures/success.json");
         let response: RpcEnvelope<Vec<Signature>> = serde_json::from_str(data)?;
 
         assert!(response.error.is_none());
-        assert!(response.result.is_some());
-
-        let result = response.result.unwrap();
+        let ResponseField::Value(result) = response.result else {
+            panic!("success signature fixture must deserialize into ResponseField::Value");
+        };
 
         assert_eq!(result.len(), 1000);
 
@@ -622,22 +646,25 @@ mod tests {
     }
 
     #[test]
-    fn should_deserialize_empty_result_when_empty_result_json() -> Result<()> {
+    fn should_deserialize_empty_result_when_empty_result_json() -> AnyResult<()> {
         let data = include_str!("../../tests/fixtures/helius/signatures/empty_result.json");
         let response: RpcEnvelope<Vec<Signature>> = serde_json::from_str(data)?;
 
         assert!(response.error.is_none());
-        assert_eq!(response.result.unwrap().len(), 0);
+        let ResponseField::Value(result) = response.result else {
+            panic!("empty signature fixture must deserialize into ResponseField::Value");
+        };
+        assert_eq!(result.len(), 0);
 
         Ok(())
     }
 
     #[test]
-    fn should_deserialize_generic_rpc_error_when_rpc_error_generic_json() -> Result<()> {
+    fn should_deserialize_generic_rpc_error_when_rpc_error_generic_json() -> AnyResult<()> {
         let data = include_str!("../../tests/fixtures/helius/signatures/rpc_error_generic.json");
         let response: RpcEnvelope<Vec<Signature>> = serde_json::from_str(data)?;
 
-        assert!(response.result.is_none());
+        assert!(matches!(response.result, ResponseField::Missing));
         let rpc_error = response.error.unwrap();
         assert!(!rpc_error.is_rate_limited());
 
@@ -651,11 +678,11 @@ mod tests {
     }
 
     #[test]
-    fn should_deserialize_rate_limit_error_when_rpc_error_rate_limit_json() -> Result<()> {
+    fn should_deserialize_rate_limit_error_when_rpc_error_rate_limit_json() -> AnyResult<()> {
         let data = include_str!("../../tests/fixtures/helius/signatures/rpc_error_rate_limit.json");
         let response: RpcEnvelope<Vec<Signature>> = serde_json::from_str(data)?;
 
-        assert!(response.result.is_none());
+        assert!(matches!(response.result, ResponseField::Missing));
 
         let rpc_error = response.error.unwrap();
 
@@ -678,7 +705,7 @@ mod tests {
     }
 
     #[test]
-    fn should_succeed_when_valid_transaction_json_is_provided() -> Result<()> {
+    fn should_succeed_when_valid_transaction_json_is_provided() -> AnyResult<()> {
         let data = include_str!("../../tests/fixtures/helius/transactions/success.json");
         let response = parse_transaction_envelope(data)?;
         let transaction = extract_transaction_info(response)?;
@@ -693,7 +720,7 @@ mod tests {
     }
 
     #[test]
-    fn should_deserialize_transaction_message_shape_from_success_fixture() -> Result<()> {
+    fn should_deserialize_transaction_message_shape_from_success_fixture() -> AnyResult<()> {
         let data = include_str!("../../tests/fixtures/helius/transactions/success.json");
         let response = parse_transaction_envelope(data)?;
         let transaction = extract_transaction_info(response)?;
@@ -711,7 +738,7 @@ mod tests {
     }
 
     #[test]
-    fn should_deserialize_top_level_instructions_from_success_fixture() -> Result<()> {
+    fn should_deserialize_top_level_instructions_from_success_fixture() -> AnyResult<()> {
         let data = include_str!("../../tests/fixtures/helius/transactions/success.json");
         let response = parse_transaction_envelope(data)?;
         let transaction = extract_transaction_info(response)?;
@@ -751,8 +778,8 @@ mod tests {
     }
 
     #[test]
-    fn should_deserialize_inner_instructions_and_token_balances_from_success_fixture() -> Result<()>
-    {
+    fn should_deserialize_inner_instructions_and_token_balances_from_success_fixture()
+    -> AnyResult<()> {
         let data = include_str!("../../tests/fixtures/helius/transactions/success.json");
         let response = parse_transaction_envelope(data)?;
         let transaction = extract_transaction_info(response)?;
@@ -785,7 +812,7 @@ mod tests {
     }
 
     #[test]
-    fn should_succeed_when_optional_fields_are_missing() -> Result<()> {
+    fn should_succeed_when_optional_fields_are_missing() -> AnyResult<()> {
         let data = include_str!(
             "../../tests/fixtures/helius/transactions/success_missing_optional_fields.json"
         );
@@ -800,7 +827,7 @@ mod tests {
     }
 
     #[test]
-    fn should_preserve_optional_instruction_defaults_when_fields_are_missing() -> Result<()> {
+    fn should_preserve_optional_instruction_defaults_when_fields_are_missing() -> AnyResult<()> {
         let data = include_str!(
             "../../tests/fixtures/helius/transactions/success_missing_optional_fields.json"
         );
@@ -839,11 +866,11 @@ mod tests {
     }
 
     #[test]
-    fn should_deserialize_generic_rpc_error_for_transaction_envelope() -> Result<()> {
+    fn should_deserialize_generic_rpc_error_for_transaction_envelope() -> AnyResult<()> {
         let data = include_str!("../../tests/fixtures/helius/signatures/rpc_error_generic.json");
         let response: RpcEnvelope<Value> = serde_json::from_str(data)?;
 
-        assert!(response.result.is_none());
+        assert!(matches!(response.result, ResponseField::Missing));
         let rpc_error = response.error.unwrap();
 
         assert_eq!(rpc_error.code, -32602);
@@ -853,18 +880,18 @@ mod tests {
     }
 
     #[test]
-    fn should_treat_null_transaction_result_as_absent_payload() -> Result<()> {
+    fn should_deserialize_null_transaction_result_as_response_field_null() -> AnyResult<()> {
         let data = include_str!("../../tests/fixtures/helius/transactions/result_null.json");
         let response = parse_transaction_envelope(data)?;
 
-        assert!(response.result.is_none());
+        assert!(matches!(response.result, ResponseField::Null));
         assert!(response.error.is_none());
 
         Ok(())
     }
 
     #[test]
-    fn should_succeed_when_malformed_parsed_instruction_json_is_provided() -> Result<()> {
+    fn should_succeed_when_malformed_parsed_instruction_json_is_provided() -> AnyResult<()> {
         let data = include_str!(
             "../../tests/fixtures/helius/transactions/malformed_parsed_instruction.json"
         );
