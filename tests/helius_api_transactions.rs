@@ -1,113 +1,20 @@
 #![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used, clippy::panic))]
 
+mod common;
+use common::{
+    create_helius_api, fetch_additional_json, load_transaction_fixture,
+    mount_transaction_http_429_response_n_times, mount_transaction_json_response,
+    mount_transaction_json_response_n_times, mount_transaction_raw_response, rpc_error_envelope,
+};
+
 use anyhow::{Ok, Result};
 use on_chain_event_indexer::requests::HeliusApi;
 use pretty_assertions::assert_eq;
 use serde_json::{Value, json};
 use std::collections::BTreeMap;
-use wiremock::matchers::{body_partial_json, method, path};
-use wiremock::{Mock, MockServer, ResponseTemplate};
+use wiremock::MockServer;
 
 const MAX_RATE_LIMIT_ATTEMPTS: usize = 5;
-
-fn fetch_additional_json() -> Result<[Value; 5]> {
-    let json1: Value = serde_json::from_str(include_str!(
-        "../tests/fixtures/helius/transactions/success_additional_1.json"
-    ))?;
-    let json2: Value = serde_json::from_str(include_str!(
-        "../tests/fixtures/helius/transactions/success_additional_2.json"
-    ))?;
-    let json3: Value = serde_json::from_str(include_str!(
-        "../tests/fixtures/helius/transactions/success_additional_3.json"
-    ))?;
-    let json4: Value = serde_json::from_str(include_str!(
-        "../tests/fixtures/helius/transactions/success_additional_4.json"
-    ))?;
-    let json5: Value = serde_json::from_str(include_str!(
-        "../tests/fixtures/helius/transactions/success_additional_5.json"
-    ))?;
-
-    Ok([json1, json2, json3, json4, json5])
-}
-
-fn transaction_request_match(signature: &str) -> Value {
-    json!({
-        "method": "getTransaction",
-        "params": [
-            signature,
-            {
-                "encoding": "jsonParsed",
-                "maxSupportedTransactionVersion": 0
-            }
-        ]
-    })
-}
-
-async fn mount_transaction_json_response(mock_server: &MockServer, signature: &str, body: Value) {
-    let response = ResponseTemplate::new(200).set_body_json(body);
-
-    Mock::given(method("POST"))
-        .and(path("/"))
-        .and(body_partial_json(transaction_request_match(signature)))
-        .respond_with(response)
-        .expect(1)
-        .mount(mock_server)
-        .await;
-}
-
-async fn mount_transaction_json_response_n_times(
-    mock_server: &MockServer,
-    signature: &str,
-    body: Value,
-    count: u64,
-) {
-    let response = ResponseTemplate::new(200).set_body_json(body);
-
-    Mock::given(method("POST"))
-        .and(path("/"))
-        .and(body_partial_json(transaction_request_match(signature)))
-        .respond_with(response)
-        .up_to_n_times(count)
-        .expect(count)
-        .mount(mock_server)
-        .await;
-}
-
-async fn mount_transaction_http_429_response_n_times(
-    mock_server: &MockServer,
-    signature: &str,
-    body: Value,
-    count: u64,
-) {
-    let response = ResponseTemplate::new(429).set_body_json(body);
-
-    Mock::given(method("POST"))
-        .and(path("/"))
-        .and(body_partial_json(transaction_request_match(signature)))
-        .respond_with(response)
-        .up_to_n_times(count)
-        .expect(count)
-        .mount(mock_server)
-        .await;
-}
-
-async fn mount_transaction_raw_response(
-    mock_server: &MockServer,
-    signature: &str,
-    status: u16,
-    body: &str,
-    content_type: &str,
-) {
-    let response = ResponseTemplate::new(status).set_body_raw(body.to_owned(), content_type);
-
-    Mock::given(method("POST"))
-        .and(path("/"))
-        .and(body_partial_json(transaction_request_match(signature)))
-        .respond_with(response)
-        .expect(1)
-        .mount(mock_server)
-        .await;
-}
 
 async fn assert_transaction_rpc_request(
     mock_server: &MockServer,
@@ -202,18 +109,11 @@ async fn assert_transaction_rpc_requests(
 #[tokio::test]
 async fn should_return_single_transaction_when_valid_get_transaction_response() -> Result<()> {
     let mock_server = MockServer::start().await;
-    let data = include_str!("../tests/fixtures/helius/transactions/success.json");
-    let json: Value = serde_json::from_str(data)?;
+    let json = load_transaction_fixture("success.json")?;
 
-    let response = ResponseTemplate::new(200).set_body_json(json);
+    mount_transaction_json_response(&mock_server, "sig-1", json).await;
 
-    Mock::given(method("POST"))
-        .and(path("/"))
-        .respond_with(response)
-        .mount(&mock_server)
-        .await;
-
-    let helius_api = HeliusApi::new(8, 2, mock_server.uri())?;
+    let helius_api = create_helius_api(&mock_server)?;
     let result = helius_api.get_transaction(&[String::from("sig-1")]).await?;
 
     assert!(result.errors.is_empty());
@@ -236,18 +136,11 @@ async fn should_return_single_transaction_when_valid_get_transaction_response() 
 #[tokio::test]
 async fn should_calculate_token_transfer_changes_after_successful_fetch() -> Result<()> {
     let mock_server = MockServer::start().await;
-    let data = include_str!("../tests/fixtures/helius/transactions/success.json");
-    let json: Value = serde_json::from_str(data)?;
+    let json = load_transaction_fixture("success.json")?;
 
-    let response = ResponseTemplate::new(200).set_body_json(json);
+    mount_transaction_json_response(&mock_server, "sig-1", json).await;
 
-    Mock::given(method("POST"))
-        .and(path("/"))
-        .respond_with(response)
-        .mount(&mock_server)
-        .await;
-
-    let helius_api = HeliusApi::new(8, 2, mock_server.uri())?;
+    let helius_api = create_helius_api(&mock_server)?;
     let result = helius_api.get_transaction(&[String::from("sig-1")]).await?;
     let transfer_changes = &result.transactions[0].token_transfer_changes;
 
@@ -346,7 +239,7 @@ async fn should_process_multiple_signatures_with_separate_requests_when_all_succ
         mount_transaction_json_response(&mock_server, signature, json).await;
     }
 
-    let helius_api = HeliusApi::new(8, 2, mock_server.uri())?;
+    let helius_api = create_helius_api(&mock_server)?;
     let result = helius_api.get_transaction(&signatures).await?;
 
     assert!(result.errors.is_empty());
@@ -367,12 +260,8 @@ async fn should_process_multiple_signatures_with_separate_requests_when_all_succ
 async fn should_return_partial_success_with_failed_signatures_when_some_rpc_calls_fail()
 -> Result<()> {
     let mock_server = MockServer::start().await;
-    let success: Value = serde_json::from_str(include_str!(
-        "../tests/fixtures/helius/transactions/success.json"
-    ))?;
-    let rpc_error: Value = serde_json::from_str(include_str!(
-        "../tests/fixtures/helius/transactions/rpc_error_generic.json"
-    ))?;
+    let success = load_transaction_fixture("success.json")?;
+    let rpc_error = load_transaction_fixture("rpc_error_generic.json")?;
 
     mount_transaction_json_response(&mock_server, "sig-1", success.clone()).await;
     mount_transaction_json_response(&mock_server, "sig-2", rpc_error).await;
@@ -382,7 +271,7 @@ async fn should_return_partial_success_with_failed_signatures_when_some_rpc_call
         .iter()
         .map(ToString::to_string)
         .collect::<Vec<_>>();
-    let helius_api = HeliusApi::new(8, 2, mock_server.uri())?;
+    let helius_api = create_helius_api(&mock_server)?;
     let result = helius_api.get_transaction(&signatures).await?;
 
     assert_eq!(result.transactions.len(), 2);
@@ -405,13 +294,11 @@ async fn should_return_partial_success_with_failed_signatures_when_some_rpc_call
 #[tokio::test]
 async fn should_mark_signature_as_failed_when_rpc_result_is_null() -> Result<()> {
     let mock_server = MockServer::start().await;
-    let result_null: Value = serde_json::from_str(include_str!(
-        "../tests/fixtures/helius/transactions/result_null.json"
-    ))?;
+    let result_null = load_transaction_fixture("result_null.json")?;
 
     mount_transaction_json_response(&mock_server, "sig-null", result_null).await;
 
-    let helius_api = HeliusApi::new(8, 2, mock_server.uri())?;
+    let helius_api = create_helius_api(&mock_server)?;
     let result = helius_api
         .get_transaction(&[String::from("sig-null")])
         .await?;
@@ -441,7 +328,7 @@ async fn should_fail_signature_with_missing_result_error_when_result_field_is_ab
     )
     .await;
 
-    let helius_api = HeliusApi::new(8, 2, mock_server.uri())?;
+    let helius_api = create_helius_api(&mock_server)?;
     let result = helius_api
         .get_transaction(&[String::from("sig-missing")])
         .await?;
@@ -475,7 +362,7 @@ async fn should_mark_signature_failed_on_decode_error_when_invalid_json_received
     )
     .await;
 
-    let helius_api = HeliusApi::new(8, 2, mock_server.uri())?;
+    let helius_api = create_helius_api(&mock_server)?;
     let result = helius_api
         .get_transaction(&[String::from("malformed-sig")])
         .await?;
@@ -500,13 +387,11 @@ async fn should_mark_signature_failed_on_decode_error_when_invalid_json_received
 #[tokio::test]
 async fn should_fail_signature_without_retry_on_non_rate_limit_rpc_error() -> Result<()> {
     let mock_server = MockServer::start().await;
-    let rpc_error: Value = serde_json::from_str(include_str!(
-        "../tests/fixtures/helius/transactions/rpc_error_generic.json"
-    ))?;
+    let rpc_error = load_transaction_fixture("rpc_error_generic.json")?;
 
     mount_transaction_json_response(&mock_server, "sig-1", rpc_error).await;
 
-    let helius_api = HeliusApi::new(8, 2, mock_server.uri())?;
+    let helius_api = create_helius_api(&mock_server)?;
     let result = helius_api.get_transaction(&["sig-1".to_string()]).await?;
 
     assert!(result.transactions.is_empty());
@@ -529,9 +414,7 @@ async fn should_fail_signature_without_retry_on_non_rate_limit_rpc_error() -> Re
 #[tokio::test]
 async fn should_retry_after_http_429_and_mark_signature_processed_after_success() -> Result<()> {
     let mock_server = MockServer::start().await;
-    let success: Value = serde_json::from_str(include_str!(
-        "../tests/fixtures/helius/transactions/success.json"
-    ))?;
+    let success = load_transaction_fixture("success.json")?;
 
     mount_transaction_http_429_response_n_times(
         &mock_server,
@@ -542,7 +425,7 @@ async fn should_retry_after_http_429_and_mark_signature_processed_after_success(
     .await;
     mount_transaction_json_response(&mock_server, "sig-retry", success).await;
 
-    let helius_api = HeliusApi::new(8, 2, mock_server.uri())?;
+    let helius_api = create_helius_api(&mock_server)?;
     let result = helius_api
         .get_transaction(&[String::from("sig-retry")])
         .await?;
@@ -559,27 +442,18 @@ async fn should_retry_after_http_429_and_mark_signature_processed_after_success(
 async fn should_retry_on_rpc_rate_limit_error_and_mark_signature_processed_after_success()
 -> Result<()> {
     let mock_server = MockServer::start().await;
-    let success: Value = serde_json::from_str(include_str!(
-        "../tests/fixtures/helius/transactions/success.json"
-    ))?;
+    let success = load_transaction_fixture("success.json")?;
 
     mount_transaction_json_response_n_times(
         &mock_server,
         "sig-rate-limited",
-        json!({
-            "jsonrpc": "2.0",
-            "id": "1",
-            "error": {
-                "code": -32429,
-                "message": "Too Many Requests"
-            }
-        }),
+        rpc_error_envelope(-32429, "Too Many Requests"),
         1,
     )
     .await;
     mount_transaction_json_response(&mock_server, "sig-rate-limited", success).await;
 
-    let helius_api = HeliusApi::new(8, 2, mock_server.uri())?;
+    let helius_api = create_helius_api(&mock_server)?;
     let result = helius_api
         .get_transaction(&[String::from("sig-rate-limited")])
         .await?;
@@ -599,19 +473,12 @@ async fn should_mark_signature_failed_when_rate_limit_retry_budget_is_exhausted(
     mount_transaction_json_response_n_times(
         &mock_server,
         "sig-exhausted",
-        json!({
-            "jsonrpc": "2.0",
-            "id": "1",
-            "error": {
-                "code": -32429,
-                "message": "Too Many Requests"
-            }
-        }),
+        rpc_error_envelope(-32429, "Too Many Requests"),
         MAX_RATE_LIMIT_ATTEMPTS as u64,
     )
     .await;
 
-    let helius_api = HeliusApi::new(8, 2, mock_server.uri())?;
+    let helius_api = create_helius_api(&mock_server)?;
     let result = helius_api
         .get_transaction(&[String::from("sig-exhausted")])
         .await?;
@@ -639,12 +506,8 @@ async fn should_mark_signature_failed_when_rate_limit_retry_budget_is_exhausted(
 async fn should_return_mixed_batch_when_one_signature_retries_successfully_and_another_fails()
 -> Result<()> {
     let mock_server = MockServer::start().await;
-    let success: Value = serde_json::from_str(include_str!(
-        "../tests/fixtures/helius/transactions/success.json"
-    ))?;
-    let rpc_error: Value = serde_json::from_str(include_str!(
-        "../tests/fixtures/helius/transactions/rpc_error_generic.json"
-    ))?;
+    let success = load_transaction_fixture("success.json")?;
+    let rpc_error = load_transaction_fixture("rpc_error_generic.json")?;
 
     mount_transaction_http_429_response_n_times(
         &mock_server,
@@ -657,7 +520,7 @@ async fn should_return_mixed_batch_when_one_signature_retries_successfully_and_a
     mount_transaction_json_response(&mock_server, "sig-fatal", rpc_error).await;
 
     let signatures = vec![String::from("sig-retry"), String::from("sig-fatal")];
-    let helius_api = HeliusApi::new(8, 2, mock_server.uri())?;
+    let helius_api = create_helius_api(&mock_server)?;
     let result = helius_api.get_transaction(&signatures).await?;
 
     assert_eq!(result.transactions.len(), 1);
@@ -673,9 +536,7 @@ async fn should_return_mixed_batch_when_one_signature_retries_successfully_and_a
 #[tokio::test]
 async fn should_process_signatures_across_chunks_of_ten() -> Result<()> {
     let mock_server = MockServer::start().await;
-    let success: Value = serde_json::from_str(include_str!(
-        "../tests/fixtures/helius/transactions/success.json"
-    ))?;
+    let success = load_transaction_fixture("success.json")?;
     let signatures = (1..=11)
         .map(|index| format!("sig-{index}"))
         .collect::<Vec<_>>();
@@ -707,7 +568,7 @@ async fn should_process_signatures_across_chunks_of_ten() -> Result<()> {
 async fn should_return_empty_transaction_batch_without_requests_when_input_is_empty() -> Result<()>
 {
     let mock_server = MockServer::start().await;
-    let helius_api = HeliusApi::new(8, 2, mock_server.uri())?;
+    let helius_api = create_helius_api(&mock_server)?;
 
     let result = helius_api.get_transaction(&[]).await?;
 

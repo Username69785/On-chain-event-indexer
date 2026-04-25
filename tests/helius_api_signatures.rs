@@ -1,16 +1,20 @@
 #![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used, clippy::panic))]
 
+mod common;
+use common::{
+    create_helius_api, mount_http_429_json_response_n_times, mount_post_json_response,
+    mount_post_json_response_n_times, mount_post_raw_response, mount_post_raw_response_n_times,
+    rpc_error_envelope,
+};
+
 use anyhow::Result;
 use chrono::Utc;
-use on_chain_event_indexer::requests::{HeliusApi, client::SignaturesPage};
+use on_chain_event_indexer::requests::client::SignaturesPage;
 use pretty_assertions::assert_eq;
 use serde_json::{Value, json};
-use wiremock::matchers::{method, path};
-use wiremock::{Mock, MockServer, ResponseTemplate};
+use wiremock::MockServer;
 
 const ADDRESS: &str = "address";
-const DEFAULT_RPS: u32 = 8;
-const DEFAULT_MAX_CONCURRENT: usize = 2;
 
 fn build_signatures_result(now_ts: i64) -> Value {
     json!({
@@ -76,90 +80,6 @@ fn build_empty_signatures_result() -> Value {
         "id": "1",
         "result": []
     })
-}
-
-fn build_rpc_error_envelope(code: i64, message: &str) -> Value {
-    json!({
-        "jsonrpc": "2.0",
-        "id": "1",
-        "error": {
-            "code": code,
-            "message": message,
-        }
-    })
-}
-
-fn create_helius_api(mock_server: &MockServer) -> Result<HeliusApi> {
-    HeliusApi::new(DEFAULT_RPS, DEFAULT_MAX_CONCURRENT, mock_server.uri())
-}
-
-async fn mount_post_json_response(mock_server: &MockServer, body: Value) {
-    let response_template = ResponseTemplate::new(200).set_body_json(body);
-
-    Mock::given(method("POST"))
-        .and(path("/"))
-        .respond_with(response_template)
-        .mount(mock_server)
-        .await;
-}
-
-async fn mount_post_json_response_n_times(mock_server: &MockServer, body: Value, count: u64) {
-    let response_template = ResponseTemplate::new(200).set_body_json(body);
-
-    Mock::given(method("POST"))
-        .and(path("/"))
-        .respond_with(response_template)
-        .up_to_n_times(count)
-        .expect(count)
-        .mount(mock_server)
-        .await;
-}
-
-async fn mount_post_raw_response(
-    mock_server: &MockServer,
-    status: u16,
-    body: &str,
-    content_type: &str,
-) {
-    let response_template =
-        ResponseTemplate::new(status).set_body_raw(body.to_owned(), content_type);
-
-    Mock::given(method("POST"))
-        .and(path("/"))
-        .respond_with(response_template)
-        .mount(mock_server)
-        .await;
-}
-
-async fn mount_post_raw_response_n_times(
-    mock_server: &MockServer,
-    status: u16,
-    body: &str,
-    content_type: &str,
-    count: u64,
-) {
-    let response_template =
-        ResponseTemplate::new(status).set_body_raw(body.to_owned(), content_type);
-
-    Mock::given(method("POST"))
-        .and(path("/"))
-        .respond_with(response_template)
-        .up_to_n_times(count)
-        .expect(count)
-        .mount(mock_server)
-        .await;
-}
-
-async fn mount_http_429_json_response_n_times(mock_server: &MockServer, body: Value, count: u64) {
-    let response_template = ResponseTemplate::new(429).set_body_json(body);
-
-    Mock::given(method("POST"))
-        .and(path("/"))
-        .respond_with(response_template)
-        .up_to_n_times(count)
-        .expect(count)
-        .mount(mock_server)
-        .await;
 }
 
 fn assert_signatures_page(
@@ -313,11 +233,7 @@ async fn should_skip_null_blocktime_and_continue_filtering() -> Result<()> {
 async fn should_return_error_without_retry_on_regular_rpc_error() -> Result<()> {
     let mock_server = MockServer::start().await;
 
-    mount_post_json_response(
-        &mock_server,
-        build_rpc_error_envelope(-32602, "Invalid params"),
-    )
-    .await;
+    mount_post_json_response(&mock_server, rpc_error_envelope(-32602, "Invalid params")).await;
 
     let helius_api = create_helius_api(&mock_server)?;
     let Err(error) = helius_api.get_signatures(ADDRESS, None, 4).await else {
@@ -353,7 +269,7 @@ async fn should_retry_after_http_429_and_succeed() -> Result<()> {
 
     mount_http_429_json_response_n_times(
         &mock_server,
-        build_rpc_error_envelope(-32005, "Too many requests"),
+        rpc_error_envelope(-32005, "Too many requests"),
         3,
     )
     .await;
@@ -380,7 +296,7 @@ async fn should_retry_on_rpc_rate_limit_and_succeed() -> Result<()> {
 
     mount_post_json_response_n_times(
         &mock_server,
-        build_rpc_error_envelope(-32429, "Too Many Requests"),
+        rpc_error_envelope(-32429, "Too Many Requests"),
         3,
     )
     .await;
@@ -451,7 +367,7 @@ async fn should_exhaust_retries_and_fail_on_persistent_rpc_rate_limit() -> Resul
 
     mount_post_json_response_n_times(
         &mock_server,
-        build_rpc_error_envelope(-32429, "Too Many Requests"),
+        rpc_error_envelope(-32429, "Too Many Requests"),
         5,
     )
     .await;
