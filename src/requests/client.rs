@@ -114,7 +114,7 @@ impl HeliusApi {
                 address,
                 {
                     "before": last_signature.as_deref(),
-                    "max_supported_transaction_version": 0,
+                    "limit": 1000,
                 }
             ]
         });
@@ -489,21 +489,21 @@ impl HeliusApi {
         let result_value = match rpc_response.result {
             ResponseField::Value(result_value) => result_value,
             ResponseField::Missing => {
-            return FetchAttempt::Fatal(TransactionFetchError {
-                signature: signature.to_string(),
-                status_code: Some(status.as_u16()),
-                rpc_code: None,
-                message: String::from("missing result field in rpc response"),
-            });
+                return FetchAttempt::Fatal(TransactionFetchError {
+                    signature: signature.to_string(),
+                    status_code: Some(status.as_u16()),
+                    rpc_code: None,
+                    message: String::from("missing result field in rpc response"),
+                });
             }
             ResponseField::Null => {
-            return FetchAttempt::Fatal(TransactionFetchError {
-                signature: signature.to_string(),
-                status_code: Some(status.as_u16()),
-                rpc_code: None,
-                message: String::from("rpc result is null"),
-            });
-        }
+                return FetchAttempt::Fatal(TransactionFetchError {
+                    signature: signature.to_string(),
+                    status_code: Some(status.as_u16()),
+                    rpc_code: None,
+                    message: String::from("rpc result is null"),
+                });
+            }
         };
 
         let tx_info: TransactionInfo = match serde_json::from_value(result_value) {
@@ -662,7 +662,15 @@ fn take_recent_signatures(
     signatures: &[Signature],
     requested_hours: i16,
 ) -> RecentSignaturesResult {
-    let cutoff_ts = Utc::now().timestamp() - i64::from(requested_hours.max(0)) * 3600;
+    take_recent_signatures_at(signatures, requested_hours, Utc::now().timestamp())
+}
+
+fn take_recent_signatures_at(
+    signatures: &[Signature],
+    requested_hours: i16,
+    now_ts: i64,
+) -> RecentSignaturesResult {
+    let cutoff_ts = now_ts - i64::from(requested_hours.max(0)) * 3600;
     let input_count = signatures.len();
     let mut filtered = Vec::with_capacity(signatures.len());
     let mut skipped_null_block_time = 0usize;
@@ -716,13 +724,13 @@ mod tests {
 
     #[test]
     fn should_return_all_signatures_when_all_are_fresh() {
-        let now = Utc::now().timestamp();
+        let now = 10_000;
         let signatures = [
             create_signature("sig-1", Some(now)),
             create_signature("sig-2", Some(now - 60)),
         ];
 
-        let result = take_recent_signatures(&signatures, 1);
+        let result = take_recent_signatures_at(&signatures, 1, now);
 
         assert_eq!(result.signatures.len(), 2);
         assert_eq!(result.signatures[0].signature, "sig-1");
@@ -733,7 +741,7 @@ mod tests {
 
     #[test]
     fn should_break_when_old_signature_reaches_cutoff() {
-        let now = Utc::now().timestamp();
+        let now = 10_000;
         let signatures = [
             create_signature("sig-1", Some(now)),
             create_signature("sig-2", Some(now - 30)),
@@ -741,7 +749,7 @@ mod tests {
             create_signature("sig-after-old", Some(now)),
         ];
 
-        let result = take_recent_signatures(&signatures, 1);
+        let result = take_recent_signatures_at(&signatures, 1, now);
 
         assert_eq!(result.signatures.len(), 2);
         assert_eq!(result.signatures[0].signature, "sig-1");
@@ -752,7 +760,7 @@ mod tests {
 
     #[test]
     fn should_skip_none_block_time_without_breaking_iteration() {
-        let now = Utc::now().timestamp();
+        let now = 10_000;
         let signatures = [
             create_signature("sig-none-1", None),
             create_signature("sig-fresh", Some(now - 60)),
@@ -760,7 +768,7 @@ mod tests {
             create_signature("sig-fresh-2", Some(now - 120)),
         ];
 
-        let result = take_recent_signatures(&signatures, 1);
+        let result = take_recent_signatures_at(&signatures, 1, now);
 
         assert_eq!(result.signatures.len(), 2);
         assert_eq!(result.signatures[0].signature, "sig-fresh");
@@ -773,7 +781,7 @@ mod tests {
     fn should_return_empty_result_for_empty_input() {
         let signatures = [];
 
-        let result = take_recent_signatures(&signatures, 1);
+        let result = take_recent_signatures_at(&signatures, 1, 10_000);
 
         assert!(result.signatures.is_empty());
         assert!(!result.reached_cutoff);
@@ -782,13 +790,13 @@ mod tests {
 
     #[test]
     fn should_treat_negative_hours_the_same_as_zero_hours() {
-        let now = Utc::now().timestamp();
+        let now = 10_000;
         let current_second = create_signature("sig-now", Some(now));
         let previous_second = create_signature("sig-prev", Some(now - 1));
         let signatures = [current_second, previous_second];
 
-        let zero_hours = take_recent_signatures(&signatures, 0);
-        let negative_hours = take_recent_signatures(&signatures, -1);
+        let zero_hours = take_recent_signatures_at(&signatures, 0, now);
+        let negative_hours = take_recent_signatures_at(&signatures, -1, now);
 
         assert_eq!(zero_hours.signatures.len(), 1);
         assert_eq!(zero_hours.signatures[0].signature, "sig-now");
