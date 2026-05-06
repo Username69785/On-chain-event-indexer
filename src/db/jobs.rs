@@ -62,7 +62,7 @@ impl Jobs {
             "
             UPDATE processing_data
             SET status     = $1,
-                updated_at = now()
+                updated_at = NOW()
             WHERE id = $2
               AND status = 'indexing'
             ",
@@ -95,6 +95,8 @@ impl Jobs {
         FROM processing_data pd
         LEFT JOIN signatures s
             ON s.owner_address = pd.address
+           AND s.block_time >= EXTRACT(EPOCH FROM (pd.created_at - pd.requested_hours * INTERVAL '1 hour'))::bigint
+           AND s.block_time <= EXTRACT(EPOCH FROM pd.created_at)::bigint
         WHERE pd.id = $1
         GROUP BY pd.status, pd.updated_at
     ";
@@ -114,10 +116,7 @@ impl Jobs {
         requested_hours: i16,
     ) -> Result<Option<i64>> {
         let query = "INSERT INTO processing_data (address, status, created_at, updated_at, tx_limit, requested_hours)
-                SELECT $1, 'pending', NOW(), NOW(), $2, $3
-                WHERE NOT EXISTS (
-                    SELECT 1 FROM processing_data WHERE address = $1
-                )
+                VALUES ($1, 'pending', NOW(), NOW(), $2, $3)
                 RETURNING id";
 
         let job_id: Option<i64> = sqlx::query_scalar(query)
