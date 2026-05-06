@@ -112,7 +112,7 @@ impl Signatures {
                 .push_bind(&signature.signature)
                 .push_bind(signature.block_time);
         });
-        query_builder.push("ON CONFLICT (signature) DO NOTHING");
+        query_builder.push("ON CONFLICT (owner_address, signature) DO NOTHING");
 
         let query = query_builder.build();
 
