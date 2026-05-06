@@ -26,12 +26,22 @@ impl Signatures {
         let started = Instant::now();
         let signatures = sqlx::query_scalar::<_, String>(
             "
-            SELECT signature
-            FROM signatures
-            WHERE owner_address = $1 AND is_processed = FALSE
-            ORDER BY block_time DESC
-            LIMIT $2
+            UPDATE signatures
+            SET is_processing = TRUE,
+                processing_started_at = NOW()
+            WHERE owner_address = $1
+            AND signature IN (
+                SELECT signature
+                FROM signatures
+                WHERE owner_address = $1 
+                AND is_processed = FALSE 
+                AND is_processing = FALSE
+                LIMIT $2
+                FOR UPDATE SKIP LOCKED
+            )
+            RETURNING signature;
             ",
+            // тут добавить проверку, что processing_started_at раньше до 5 мин
         )
         .bind(address)
         .bind(limit)
@@ -61,7 +71,8 @@ impl Signatures {
         let result = sqlx::query(
             "
             UPDATE signatures
-            SET is_processed = TRUE
+            SET is_processed  = TRUE,
+                is_processing = FALSE
             WHERE owner_address = $1
               AND signature = ANY($2)
               AND is_processed = FALSE
