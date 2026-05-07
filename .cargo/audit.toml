@@ -1,0 +1,10 @@
+[advisories]
+ignore = [
+    # RUSTSEC-2023-0071: RSA Marvin Attack.
+    # Ignored because it is pulled in via sqlx-mysql, which is disabled by features.
+    # Proof: `cargo tree -i sqlx-mysql` returns nothing.
+    "RUSTSEC-2023-0071",
+
+    # RUSTSEC-2025-0141: Bincode unmaintained. Pulled in from the Solana SDK core. Awaiting a fix from Solana.
+    "RUSTSEC-2025-0141",
+]
