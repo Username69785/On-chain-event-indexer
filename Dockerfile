@@ -3,13 +3,15 @@ WORKDIR /app
 
 RUN apt-get update && apt-get install -y \
     clang \
-    lld \
+    mold \
     pkg-config \
     libssl-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Start with just the manifests — dependencies are cached in a separate layer
 COPY Cargo.toml Cargo.lock ./
+COPY .cargo ./.cargo
+
 RUN mkdir src && echo "fn main() {}" > src/main.rs
 RUN cargo build --release
 
