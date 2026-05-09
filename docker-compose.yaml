@@ -18,12 +18,16 @@ services:
   indexer_app:
     build: .
     env_file:
-      - .env
+      - path: .env
+        required: false
     depends_on:
       db:
         condition: service_healthy
     environment:
+      API_KEY: ${API_KEY:-ci-placeholder}
       DATABASE_URL: postgresql://postgres:password@db:5432/app_db
+      RPC_URL: ${RPC_URL:-http://127.0.0.1/}
+      RUST_LOG: ${RUST_LOG:-info}
     ports:
       - "8080:8080"
 

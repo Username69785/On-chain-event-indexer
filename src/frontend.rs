@@ -33,6 +33,7 @@ pub async fn create_server(app_state: Arc<AppState>) -> Result<()> {
         .allow_headers(Any);
 
     let app = Router::new()
+        .route("/health", get(health))
         .route("/analyze", post(address_processing))
         .route("/jobs/{id}", get(get_job_info))
         .layer(cors)
@@ -45,6 +46,10 @@ pub async fn create_server(app_state: Arc<AppState>) -> Result<()> {
     axum::serve(listener, app).await?;
 
     Ok(())
+}
+
+pub async fn health() -> impl IntoResponse {
+    Json(json!({ "status": "ok" }))
 }
 
 pub async fn address_processing(

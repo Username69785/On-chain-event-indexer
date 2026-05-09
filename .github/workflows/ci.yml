@@ -24,8 +24,6 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - run: cargo fmt --all -- --check
       - run: cargo clippy --all-targets --all-features -- -D warnings
-      - run: cargo install sqlx-cli --no-default-features --features native-tls,postgres
-      - run: cargo sqlx prepare --check
 
   security:
     name: Security Audit
@@ -41,7 +39,7 @@ jobs:
     runs-on: ubuntu-latest
     services:
       postgres:
-        image: postgres:15
+        image: postgres:17-alpine
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: password
@@ -49,7 +47,7 @@ jobs:
         ports:
           - 5432:5432
         options: >-
-          --health-cmd pg_isready
+          --health-cmd "pg_isready -U postgres -d indexer_db"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
@@ -62,7 +60,58 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
 
+      - name: Install sqlx-cli
+        run: cargo install sqlx-cli --version 0.8.6 --locked --no-default-features --features native-tls,postgres
+
+      - name: Run migrations
+        env:
+          DATABASE_URL: postgres://postgres:password@localhost:5432/indexer_db
+        run: cargo sqlx migrate run
+
       - name: Run tests
         env:
           DATABASE_URL: postgres://postgres:password@localhost:5432/indexer_db
         run: cargo test --all-targets --all-features
+
+  docker-smoke-test:
+    name: Docker Build & Smoke Test
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Build Docker Image
+        run: docker compose build
+
+      - name: Start services
+        run: docker compose up -d
+
+      - name: Wait for API
+        run: |
+          for attempt in {1..30}; do
+            if curl -fsS http://localhost:8080/health; then
+              exit 0
+            fi
+            docker compose ps
+            sleep 2
+          done
+
+          echo "API did not become healthy in time."
+          exit 1
+
+      - name: Check if application crashed
+        run: |
+          docker compose ps
+          if docker compose ps | grep -iq "exit"; then
+            echo "CRITICAL: Container crashed after startup!"
+            exit 1
+          fi
+          echo "Containers are running successfully."
+
+      - name: Show Docker logs on failure
+        if: failure()
+        run: docker compose logs --no-color
+
+      - name: Stop services
+        if: always()
+        run: docker compose down -v
