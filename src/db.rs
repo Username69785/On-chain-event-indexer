@@ -6,15 +6,16 @@ use jobs::Jobs;
 use signatures::Signatures;
 use transactions::Transactions;
 
+use crate::backoff::WorkerBackoff;
 use crate::requests::{RpcResponse, TransactionResult};
 use crate::types::{ClaimedJob, JobInfo, SaveStats};
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 use sqlx::PgPool;
 use sqlx::migrate::Migrator;
 use sqlx::postgres::PgPoolOptions;
 use std::time::Instant;
-use tracing::{info, instrument};
+use tracing::{error, info, instrument, warn};
 
 pub static MIGRATOR: Migrator = sqlx::migrate!("./migrations");
 
@@ -28,12 +29,44 @@ pub struct Database {
 impl Database {
     #[instrument]
     pub async fn new() -> Result<Self> {
-        let url = dotenvy::var("DATABASE_URL")?;
+        let max_retries = 5;
+        let mut retry_count = 0;
+        let mut backoff = WorkerBackoff::new(500.0, 5_000.0, 2.0);
+
+        let url = dotenvy::var("DATABASE_URL").context("DATABASE_URL is not set")?;
         let started = Instant::now();
-        let pool = PgPoolOptions::new()
-            .max_connections(5)
-            .connect(&url)
-            .await?;
+        let pool = loop {
+            match PgPoolOptions::new().max_connections(5).connect(&url).await {
+                Ok(pool) => break pool,
+                Err(err) if retry_count < max_retries => {
+                    retry_count += 1;
+                    let delay = backoff.step_and_get_sleep_duration();
+                    warn!(
+                        %err,
+                        attempt = retry_count,
+                        max_retries,
+                        ?delay,
+                        "Failed to connect to database; retrying"
+                    );
+
+                    tokio::time::sleep(delay).await;
+                }
+                Err(err) => {
+                    error!(
+                        %err,
+                        attempts = retry_count + 1,
+                        max_retries,
+                        elapsed_ms = started.elapsed().as_millis(),
+                        "Failed to connect to database after retry limit"
+                    );
+                    return Err(err).context(format!(
+                        "failed to connect to database after {} attempts",
+                        retry_count + 1
+                    ));
+                }
+            }
+        };
+
         info!(
             elapsed_ms = started.elapsed().as_millis(),
             "Database pool created"
@@ -48,7 +81,10 @@ impl Database {
     }
 
     pub async fn migrate(&self) -> Result<()> {
-        MIGRATOR.run(&self.pool).await?;
+        MIGRATOR
+            .run(&self.pool)
+            .await
+            .context("failed to run database migrations")?;
         Ok(())
     }
 
