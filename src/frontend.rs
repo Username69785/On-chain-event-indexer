@@ -38,8 +38,8 @@ pub async fn create_server(app_state: Arc<AppState>) -> Result<()> {
         .layer(cors)
         .with_state(app_state);
 
-    let listener = tokio::net::TcpListener::bind("127.0.0.1:8080").await?;
-    info!(address = "127.0.0.1:8080", "API listener bound");
+    let listener = tokio::net::TcpListener::bind("0.0.0.0:8080").await?;
+    info!(address = "0.0.0.0:8080", "API listener bound");
 
     info!("API server is running");
     axum::serve(listener, app).await?;
