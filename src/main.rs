@@ -16,6 +16,7 @@ use tracing::{Instrument, debug, info, warn};
 #[tokio::main]
 async fn main() -> Result<()> {
     telemetry::init()?;
+
     let api = dotenvy::var("API_KEY")?;
     let url = dotenvy::var("RPC_URL")?;
 
@@ -23,6 +24,8 @@ async fn main() -> Result<()> {
         database: db::Database::new().await?,
         helius_api: HeliusApi::new(8, 2, format!("{url}{api}"))?,
     });
+
+    app_state.database.migrate().await?;
 
     let server_handle = tokio::spawn(create_server(Arc::clone(&app_state)));
 

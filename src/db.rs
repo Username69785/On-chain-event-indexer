@@ -10,14 +10,19 @@ use crate::requests::{RpcResponse, TransactionResult};
 use crate::types::{ClaimedJob, JobInfo, SaveStats};
 
 use anyhow::Result;
+use sqlx::PgPool;
+use sqlx::migrate::Migrator;
 use sqlx::postgres::PgPoolOptions;
 use std::time::Instant;
 use tracing::{info, instrument};
+
+pub static MIGRATOR: Migrator = sqlx::migrate!("./migrations");
 
 pub struct Database {
     jobs: Jobs,
     signatures: Signatures,
     transactions: Transactions,
+    pool: PgPool,
 }
 
 impl Database {
@@ -37,9 +42,16 @@ impl Database {
         Ok(Self {
             jobs: Jobs::new(pool.clone()),
             signatures: Signatures::new(pool.clone()),
-            transactions: Transactions::new(pool),
+            transactions: Transactions::new(pool.clone()),
+            pool,
         })
     }
+
+    pub async fn migrate(&self) -> Result<()> {
+        MIGRATOR.run(&self.pool).await?;
+        Ok(())
+    }
+
     pub async fn claim_pending_job(&self, worker_id: u32) -> Result<Option<ClaimedJob>> {
         self.jobs.claim_pending_job(worker_id).await
     }

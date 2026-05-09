@@ -33,6 +33,7 @@ sqlx = { version = "0.8.6", default-features = false, features = [
     "chrono",
     "macros",
     "bigdecimal",
+    "migrate",
 ] }
 bigdecimal = "0.4"
 uuid = { version = "1.23.1", features = ["serde", "v4"] }
