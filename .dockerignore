@@ -4,3 +4,11 @@ target/
 .git/
 .gitignore
 frontend/
+logs/
+tests/
+.github/
+.agents/
+.codex
+README.md
+LICENSE
+DataBaseInfo.md
