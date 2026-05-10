@@ -27,8 +27,19 @@ pub struct AddressProcessing {
 pub async fn create_server(app_state: Arc<AppState>) -> Result<()> {
     info!("Starting API server initialization");
 
+    let allowed_origins = dotenvy::var("CORS_ALLOWED_ORIGINS")
+        .unwrap_or_else(|_| "http://127.0.0.1:5500".to_string());
+
+    let origins = allowed_origins
+        .split(',')
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(str::parse::<http::HeaderValue>)
+        .collect::<Result<Vec<_>, _>>()?;
+    info!(?origins, "Configured CORS allowed origins");
+
     let cors = CorsLayer::new()
-        .allow_origin("http://127.0.0.1:5500".parse::<http::HeaderValue>()?)
+        .allow_origin(origins)
         .allow_methods(Any)
         .allow_headers(Any);
 
