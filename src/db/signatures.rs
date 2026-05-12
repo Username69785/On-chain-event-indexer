@@ -35,13 +35,16 @@ impl Signatures {
                 FROM signatures
                 WHERE owner_address = $1 
                 AND is_processed = FALSE 
-                AND is_processing = FALSE
+                AND (
+                    is_processing = FALSE
+                    OR processing_started_at IS NULL
+                    OR processing_started_at < NOW() - INTERVAL '5 minutes'
+                )
                 LIMIT $2
                 FOR UPDATE SKIP LOCKED
             )
             RETURNING signature;
             ",
-            // тут добавить проверку, что processing_started_at раньше до 5 мин
         )
         .bind(address)
         .bind(limit)
