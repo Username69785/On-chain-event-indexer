@@ -72,12 +72,17 @@ impl Database {
             "Database pool created"
         );
 
-        Ok(Self {
+        Ok(Self::from_pool(pool))
+    }
+
+    #[instrument(skip(pool))]
+    pub fn from_pool(pool: PgPool) -> Self {
+        Self {
             jobs: Jobs::new(pool.clone()),
             signatures: Signatures::new(pool.clone()),
             transactions: Transactions::new(pool.clone()),
             pool,
-        })
+        }
     }
 
     pub async fn migrate(&self) -> Result<()> {
