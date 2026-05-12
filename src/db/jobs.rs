@@ -65,6 +65,17 @@ impl Jobs {
                 updated_at = NOW()
             WHERE id = $2
               AND status = 'indexing'
+              AND (
+                  $1 <> 'ready'
+                  OR NOT EXISTS (
+                      SELECT 1
+                      FROM signatures s
+                      WHERE s.owner_address = processing_data.address
+                        AND s.block_time >= EXTRACT(EPOCH FROM (processing_data.created_at - processing_data.requested_hours * INTERVAL '1 hour'))::bigint
+                        AND s.block_time <= EXTRACT(EPOCH FROM processing_data.created_at)::bigint
+                        AND s.is_processed = FALSE
+                  )
+              )
             ",
         )
         .bind(status)
