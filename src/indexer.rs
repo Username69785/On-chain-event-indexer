@@ -30,39 +30,62 @@ pub async fn process_claimed_job(app_state: &AppState, worker_id: u32, claimed_j
 
     match processing_result {
         Ok(()) => {
-            if let Err(err) = app_state
+            match app_state
                 .database
                 .update_processing_status_by_job_id(job_id, "ready")
                 .await
             {
-                warn!(
+                Ok(1) => {
+                    info!(
+                        elapsed_ms = started.elapsed().as_millis(),
+                        worker_id, job_id, "Indexer finished for {}", &address
+                    );
+                }
+                Ok(0) => {
+                    warn!(
+                        job_id,
+                        worker_id, "Ready status update was blocked by unprocessed signatures"
+                    );
+                    mark_job_error(app_state, job_id, worker_id).await;
+                }
+                Ok(updated) => {
+                    warn!(
+                        updated,
+                        job_id, worker_id, "Unexpected number of jobs updated to ready"
+                    );
+                }
+                Err(err) => warn!(
                     %err,
                     job_id,
                     worker_id,
                     "Failed to update processing status to ready"
-                );
+                ),
             }
-
-            info!(
-                elapsed_ms = started.elapsed().as_millis(),
-                worker_id, job_id, "Indexer finished for {}", &address
-            );
         }
         Err(err) => {
             warn!(%err, worker_id, job_id, "Indexer failed for {}", &address);
-            if let Err(status_err) = app_state
-                .database
-                .update_processing_status_by_job_id(job_id, "error")
-                .await
-            {
-                warn!(
-                    %status_err,
-                    job_id,
-                    worker_id,
-                    "Failed to update processing status to error"
-                );
-            }
+            mark_job_error(app_state, job_id, worker_id).await;
         }
+    }
+}
+
+async fn mark_job_error(app_state: &AppState, job_id: i64, worker_id: u32) {
+    match app_state
+        .database
+        .update_processing_status_by_job_id(job_id, "error")
+        .await
+    {
+        Ok(1) => {}
+        Ok(updated) => warn!(
+            updated,
+            job_id, worker_id, "Unexpected number of jobs updated to error"
+        ),
+        Err(status_err) => warn!(
+            %status_err,
+            job_id,
+            worker_id,
+            "Failed to update processing status to error"
+        ),
     }
 }
 
