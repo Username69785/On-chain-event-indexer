@@ -616,6 +616,19 @@ mod workflow {
                 .expect("processing job should be created"))
         }
 
+        async fn create_job_for_address(
+            &self,
+            address: &str,
+            tx_limit: i16,
+            requested_hours: i16,
+        ) -> Result<i64> {
+            Ok(self
+                .database
+                .create_processing_job(address, tx_limit, requested_hours)
+                .await?
+                .expect("processing job should be created"))
+        }
+
         async fn process_once(&self) -> Result<Option<on_chain_event_indexer::types::JobInfo>> {
             let app_state = self.app_state()?;
             indexer::process_pending_job_once(&app_state, WORKER_ID).await
@@ -637,6 +650,13 @@ mod workflow {
         }
 
         async fn signature_rows(&self) -> Result<Vec<(String, bool, bool)>> {
+            self.signature_rows_for_address(OWNER).await
+        }
+
+        async fn signature_rows_for_address(
+            &self,
+            address: &str,
+        ) -> Result<Vec<(String, bool, bool)>> {
             Ok(sqlx::query_as::<_, (String, bool, bool)>(
                 "
                 SELECT signature, is_processed, is_processing
@@ -645,7 +665,7 @@ mod workflow {
                 ORDER BY signature
                 ",
             )
-            .bind(OWNER)
+            .bind(address)
             .fetch_all(&self.pool)
             .await?)
         }
@@ -948,6 +968,76 @@ mod workflow {
         harness.assert_no_persisted_data().await?;
         assert_signature_requests(&harness.mock_server, &[Value::Null]).await?;
         assert_transaction_requests(&harness.mock_server, &[]).await?;
+
+        Ok(())
+    }
+
+    #[sqlx::test(migrations = "./migrations")]
+    async fn should_mark_job_as_error_when_ready_update_is_blocked_by_unprocessed_signatures(
+        pool: PgPool,
+    ) -> Result<()> {
+        let harness = WorkflowHarness::new(pool).await?;
+        let now = Utc::now().timestamp() - 60;
+        let other_owner = "workflow-owner-other";
+        let other_job_id = harness
+            .create_job_for_address(other_owner, 1000, 24)
+            .await?;
+        let job_id = harness.create_job(1000, 24).await?;
+
+        mount_signature_response(
+            &harness.mock_server,
+            signature_response(&[(SUCCESS_SIGNATURE, now), (FAILED_SIGNATURE, now)]),
+            1,
+        )
+        .await;
+        mount_transaction_response(
+            &harness.mock_server,
+            SUCCESS_SIGNATURE,
+            transaction_fixture(SUCCESS_SIGNATURE)?,
+            1,
+        )
+        .await;
+
+        let other_claim = harness
+            .database
+            .claim_pending_job(WORKER_ID + 1)
+            .await?
+            .expect("older job should be claimed first");
+        assert_eq!(other_claim.job_id, other_job_id);
+
+        harness
+            .database
+            .write_signatures(
+                &serde_json::from_value(json!({
+                    "result": [
+                        {
+                            "signature": FAILED_SIGNATURE,
+                            "blockTime": now,
+                        }
+                    ]
+                }))?,
+                OWNER,
+            )
+            .await?;
+
+        let job_info = harness
+            .process_once()
+            .await?
+            .expect("pending job should be processed");
+
+        assert_eq!(job_info.status, "error");
+        assert_eq!(harness.job_status(job_id).await?, "error");
+        assert_eq!(harness.job_status(other_job_id).await?, "indexing");
+        assert_eq!(
+            harness.signature_rows_for_address(OWNER).await?,
+            vec![
+                (SUCCESS_SIGNATURE.to_string(), true, false),
+                (FAILED_SIGNATURE.to_string(), false, true),
+            ]
+        );
+        assert_signature_requests(&harness.mock_server, &[Value::Null]).await?;
+        assert_transaction_requests(&harness.mock_server, &[SUCCESS_SIGNATURE, FAILED_SIGNATURE])
+            .await?;
 
         Ok(())
     }
