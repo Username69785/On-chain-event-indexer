@@ -22,13 +22,18 @@ impl Jobs {
         let claimed_job = sqlx::query_as::<_, ClaimedJob>(
             "
             WITH next_job AS (
-                SELECT id
-                FROM processing_data pd
-                WHERE status = 'pending'
-                ORDER BY created_at ASC
-                LIMIT 1
-                FOR UPDATE SKIP LOCKED
+            SELECT id
+            FROM processing_data pd
+            WHERE status = 'pending'
+            AND NOT EXISTS (
+                SELECT 1 FROM processing_data active
+                WHERE active.address = pd.address
+                    AND active.status = 'indexing'
             )
+            ORDER BY created_at ASC
+            LIMIT 1
+            FOR UPDATE SKIP LOCKED
+)
             UPDATE processing_data pd
             SET status     = 'indexing',
                 worker_id  = $1,
