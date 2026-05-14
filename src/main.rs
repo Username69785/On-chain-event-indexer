@@ -1,10 +1,10 @@
-use on_chain_event_indexer::{AppState, backoff, db, frontend, indexer, requests, telemetry};
+use on_chain_event_indexer::{AppState, backoff, db, indexer, requests, server, telemetry};
 
 use anyhow::Result;
 use backoff::WorkerBackoff;
-use frontend::create_server;
 use indexer::process_claimed_job;
 use requests::HeliusApi;
+use server::create_server;
 use std::sync::Arc;
 use tokio::task::JoinHandle;
 use tokio::time::{Duration, sleep};
