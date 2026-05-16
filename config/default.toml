@@ -1,0 +1,21 @@
+[database]
+port = 5432
+max_connections = 5
+
+[rpc]
+url = "https://mainnet.helius-rpc.com/?api-key="
+rps = 8
+max_concurrent = 2
+max_rate_limit_retries = 4
+
+[server]
+port = 8080
+bind = "0.0.0.0:8080"
+cors_allowed_origins = ["http://127.0.0.1:5500"]
+
+[workers]
+count = 4
+
+[logging]
+level = "info"
+dir = "/home/main/Documents/Code/Rust/On-chain-event-indexer/logs/"
