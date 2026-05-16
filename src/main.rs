@@ -23,6 +23,7 @@ async fn main() -> Result<()> {
         helius_api: HeliusApi::new(
             settings.rpc.rps,
             settings.rpc.max_concurrent,
+            settings.rpc.max_rate_limit_retries,
             settings.rpc_endpoint(),
         )?,
         database: db::Database::new(settings.database.url, settings.database.max_connections)

@@ -82,7 +82,7 @@ pub struct RpcSettings {
     pub url: String,
     pub rps: u32,
     pub max_concurrent: usize,
-    pub max_rate_limit_retries: u32,
+    pub max_rate_limit_retries: usize,
 }
 
 #[derive(Debug, Deserialize, Clone)]
