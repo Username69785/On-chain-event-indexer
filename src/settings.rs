@@ -56,12 +56,10 @@ impl Settings {
     fn log_loaded_settings(&self) {
         info!(
             server_bind = %self.server.bind,
-            server_port = self.server.port,
             worker_count = self.workers.count,
             rpc_rps = self.rpc.rps,
             rpc_max_concurrent = self.rpc.max_concurrent,
             rpc_max_rate_limit_retries = self.rpc.max_rate_limit_retries,
-            database_port = self.database.port,
             database_max_connections = self.database.max_connections,
             cors_allowed_origins = self.server.cors_allowed_origins.len(),
             logging_level = %self.logging.level,
@@ -88,7 +86,6 @@ impl Settings {
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct DatabaseSettings {
-    pub port: u32,
     pub url: String,
     pub max_connections: u32,
 }
@@ -104,7 +101,6 @@ pub struct RpcSettings {
 
 #[derive(Debug, Deserialize, Clone)]
 pub struct ServerSettings {
-    pub port: u32,
     pub bind: SocketAddr,
     pub cors_allowed_origins: Vec<String>,
 }
