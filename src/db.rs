@@ -27,7 +27,7 @@ pub struct Database {
 }
 
 impl Database {
-    #[instrument]
+    #[instrument(skip(url))]
     pub async fn new(url: String, max_connections: u32) -> Result<Self> {
         let max_retries = 5;
         let mut retry_count = 0;
