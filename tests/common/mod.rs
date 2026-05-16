@@ -9,9 +9,15 @@ use wiremock::{Mock, MockServer, ResponseTemplate};
 
 const DEFAULT_RPS: u32 = 8;
 const DEFAULT_MAX_CONCURRENT: usize = 2;
+const DEFAULT_MAX_RATE_LIMIT_RETRIES: usize = 4;
 
 pub fn create_helius_api(mock_server: &MockServer) -> Result<HeliusApi> {
-    HeliusApi::new(DEFAULT_RPS, DEFAULT_MAX_CONCURRENT, mock_server.uri())
+    HeliusApi::new(
+        DEFAULT_RPS,
+        DEFAULT_MAX_CONCURRENT,
+        DEFAULT_MAX_RATE_LIMIT_RETRIES,
+        mock_server.uri(),
+    )
 }
 
 pub fn rpc_error_envelope(code: i64, message: &str) -> Value {

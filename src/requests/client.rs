@@ -27,8 +27,6 @@ use super::types::{
     TransactionInfo, TransactionResult,
 };
 
-const MAX_RATE_LIMIT_RETRIES: usize = 4;
-
 struct RpcHttpResponse {
     status: StatusCode,
     retry_after: Option<Duration>,
@@ -72,10 +70,16 @@ pub struct HeliusApi {
     rate_limit_backoff: Arc<Mutex<WorkerBackoff>>,
     rate_limit_until: Arc<Mutex<Option<Instant>>>,
     last_rate_limit_at: Arc<Mutex<Option<Instant>>>,
+    max_rate_limit_retries: usize,
 }
 
 impl HeliusApi {
-    pub fn new(rps: u32, max_concurrent: usize, rpc_endpoint: String) -> Result<Self> {
+    pub fn new(
+        rps: u32,
+        max_concurrent: usize,
+        max_rate_limit_retries: usize,
+        rpc_endpoint: String,
+    ) -> Result<Self> {
         let quota = Quota::per_second(
             std::num::NonZeroU32::new(rps)
                 .ok_or_else(|| anyhow!("RPS не может быть равен нулю"))?,
@@ -96,6 +100,7 @@ impl HeliusApi {
             rate_limit_backoff,
             rate_limit_until,
             last_rate_limit_at,
+            max_rate_limit_retries,
         })
     }
     #[allow(clippy::too_many_lines)]
@@ -119,7 +124,7 @@ impl HeliusApi {
             ]
         });
 
-        for attempt in 1..=MAX_RATE_LIMIT_RETRIES + 1 {
+        for attempt in 1..=self.max_rate_limit_retries + 1 {
             let request_started = Instant::now();
             let response = self.send_rpc_request(&body).await?;
             let status = response.status;
@@ -129,7 +134,8 @@ impl HeliusApi {
             ) {
                 Ok(rpc_response) => rpc_response,
                 Err(error) => {
-                    if status == StatusCode::TOO_MANY_REQUESTS && attempt <= MAX_RATE_LIMIT_RETRIES
+                    if status == StatusCode::TOO_MANY_REQUESTS
+                        && attempt <= self.max_rate_limit_retries
                     {
                         let delay = self.register_rate_limit(response.retry_after).await;
                         warn!(
@@ -137,7 +143,7 @@ impl HeliusApi {
                             address = %mask_addr(address),
                             status = ?status,
                             attempt,
-                            max_attempts = MAX_RATE_LIMIT_RETRIES + 1,
+                            max_attempts = self.max_rate_limit_retries + 1,
                             sleep_ms = delay.as_millis(),
                             "Rate limit detected on getSignaturesForAddress, retrying"
                         );
@@ -151,7 +157,7 @@ impl HeliusApi {
             };
 
             if let Some(rpc_error) = rpc_response.error {
-                if rpc_error.is_rate_limited() && attempt <= MAX_RATE_LIMIT_RETRIES {
+                if rpc_error.is_rate_limited() && attempt <= self.max_rate_limit_retries {
                     let delay = self.register_rate_limit(response.retry_after).await;
                     warn!(
                         target: "client",
@@ -159,7 +165,7 @@ impl HeliusApi {
                         status = ?status,
                         rpc_code = rpc_error.code,
                         attempt,
-                        max_attempts = MAX_RATE_LIMIT_RETRIES + 1,
+                        max_attempts = self.max_rate_limit_retries + 1,
                         sleep_ms = delay.as_millis(),
                         "Rate limit detected on getSignaturesForAddress, retrying"
                     );
@@ -222,7 +228,7 @@ impl HeliusApi {
 
         Err(anyhow!(
             "getSignaturesForAddress exhausted retry budget after {} attempts",
-            MAX_RATE_LIMIT_RETRIES + 1
+            self.max_rate_limit_retries + 1
         ))
     }
 
@@ -377,7 +383,7 @@ impl HeliusApi {
 
         let mut last_rate_limit_error: Option<TransactionFetchError> = None;
 
-        for attempt in 1..=MAX_RATE_LIMIT_RETRIES + 1 {
+        for attempt in 1..=self.max_rate_limit_retries + 1 {
             let request_started = Instant::now();
 
             match self.try_fetch_transaction_once(&signature, &body).await {
@@ -399,7 +405,7 @@ impl HeliusApi {
                     };
                 }
                 FetchAttempt::RateLimited(fetch_error, retry_after) => {
-                    if attempt <= MAX_RATE_LIMIT_RETRIES {
+                    if attempt <= self.max_rate_limit_retries {
                         last_rate_limit_error = Some(fetch_error.clone());
                         let delay = self.register_rate_limit(retry_after).await;
                         warn!(
@@ -408,7 +414,7 @@ impl HeliusApi {
                             status_code = ?fetch_error.status_code,
                             rpc_code = ?fetch_error.rpc_code,
                             attempt,
-                            max_attempts = MAX_RATE_LIMIT_RETRIES + 1,
+                            max_attempts = self.max_rate_limit_retries + 1,
                             sleep_ms = delay.as_millis(),
                             "Rate limit detected on getTransaction, retrying"
                         );
@@ -429,7 +435,7 @@ impl HeliusApi {
                 rpc_code: None,
                 message: format!(
                     "getTransaction exhausted retry budget after {} attempts",
-                    MAX_RATE_LIMIT_RETRIES + 1
+                    self.max_rate_limit_retries + 1
                 ),
             }
         }))

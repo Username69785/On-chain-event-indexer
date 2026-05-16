@@ -27,16 +27,19 @@ pub struct Database {
 }
 
 impl Database {
-    #[instrument]
-    pub async fn new() -> Result<Self> {
+    #[instrument(skip(url))]
+    pub async fn new(url: String, max_connections: u32) -> Result<Self> {
         let max_retries = 5;
         let mut retry_count = 0;
         let mut backoff = WorkerBackoff::new(500.0, 5_000.0, 2.0);
 
-        let url = dotenvy::var("DATABASE_URL").context("DATABASE_URL is not set")?;
         let started = Instant::now();
         let pool = loop {
-            match PgPoolOptions::new().max_connections(5).connect(&url).await {
+            match PgPoolOptions::new()
+                .max_connections(max_connections)
+                .connect(&url)
+                .await
+            {
                 Ok(pool) => break pool,
                 Err(err) if retry_count < max_retries => {
                     retry_count += 1;

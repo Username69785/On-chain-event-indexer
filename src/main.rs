@@ -1,10 +1,13 @@
-use on_chain_event_indexer::{AppState, backoff, db, frontend, indexer, requests, telemetry};
+use on_chain_event_indexer::{
+    AppState, backoff, db, indexer, requests, server, settings, telemetry,
+};
 
+use crate::settings::Settings;
 use anyhow::Result;
 use backoff::WorkerBackoff;
-use frontend::create_server;
 use indexer::process_claimed_job;
 use requests::HeliusApi;
+use server::create_server;
 use std::sync::Arc;
 use tokio::task::JoinHandle;
 use tokio::time::{Duration, sleep};
@@ -12,22 +15,31 @@ use tracing::warn;
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    telemetry::init()?;
-
-    let api = dotenvy::var("API_KEY")?;
-    let url = dotenvy::var("RPC_URL")?;
+    let settings = Settings::load()?;
+    telemetry::init(&settings.logging.level, &settings.logging.dir)?;
+    settings.log_loaded_settings();
 
     let app_state = Arc::new(AppState {
-        database: db::Database::new().await?,
-        helius_api: HeliusApi::new(8, 2, format!("{url}{api}"))?,
+        helius_api: HeliusApi::new(
+            settings.rpc.rps,
+            settings.rpc.max_concurrent,
+            settings.rpc.max_rate_limit_retries,
+            settings.rpc_endpoint(),
+        )?,
+        database: db::Database::new(settings.database.url, settings.database.max_connections)
+            .await?,
     });
 
     app_state.database.migrate().await?;
 
-    let server_handle = tokio::spawn(create_server(Arc::clone(&app_state)));
+    let server_handle = tokio::spawn(create_server(
+        Arc::clone(&app_state),
+        settings.server.bind,
+        settings.server.cors_allowed_origins,
+    ));
 
     let mut worker_handles: Vec<JoinHandle<Result<()>>> = Vec::new();
-    for worker_id in 1..5 {
+    for worker_id in 1..=settings.workers.count {
         let state = Arc::clone(&app_state);
         worker_handles.push(tokio::spawn(worker_loop(state, worker_id)));
         sleep(Duration::from_millis(700)).await;

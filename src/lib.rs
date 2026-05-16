@@ -3,10 +3,11 @@
 
 pub mod backoff;
 pub mod db;
-pub mod frontend;
 pub mod indexer;
 pub mod logging;
 pub mod requests;
+pub mod server;
+pub mod settings;
 pub mod telemetry;
 pub mod types;
 

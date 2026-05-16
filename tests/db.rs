@@ -604,7 +604,7 @@ mod workflow {
         fn app_state(&self) -> Result<AppState> {
             Ok(AppState {
                 database: db::Database::from_pool(self.pool.clone()),
-                helius_api: HeliusApi::new(100, 10, self.mock_server.uri())?,
+                helius_api: HeliusApi::new(100, 10, 4, self.mock_server.uri())?,
             })
         }
 

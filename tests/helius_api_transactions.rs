@@ -545,7 +545,7 @@ async fn should_process_signatures_across_chunks_of_ten() -> Result<()> {
         mount_transaction_json_response(&mock_server, signature, success.clone()).await;
     }
 
-    let helius_api = HeliusApi::new(100, 20, mock_server.uri())?;
+    let helius_api = HeliusApi::new(100, 20, 4, mock_server.uri())?;
     let result = helius_api.get_transaction(&signatures).await?;
 
     assert!(result.errors.is_empty());

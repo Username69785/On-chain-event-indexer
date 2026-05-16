@@ -32,7 +32,7 @@ RUN --mount=type=cache,target=/usr/local/cargo/registry,sharing=locked \
 
 FROM debian:bookworm-slim
 WORKDIR /app
-ENV LOG_DIR=/app/logs
+ENV APP__LOGGING__DIR=/app/logs
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
@@ -40,6 +40,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 COPY --from=builder /tmp/indexer ./indexer
+COPY config/default.toml ./config/default.toml
 
 RUN useradd --uid 10001 --create-home --shell /usr/sbin/nologin appuser \
     && mkdir -p /app/logs \

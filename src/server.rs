@@ -10,6 +10,7 @@ use axum::{
 };
 use serde::{Deserialize, Serialize};
 use serde_json::json;
+use std::net::SocketAddr;
 use tower_http::cors::{Any, CorsLayer};
 use tracing::{error, info, warn};
 
@@ -24,22 +25,22 @@ pub struct AddressProcessing {
     pub tx_limit: i16,
 }
 
-pub async fn create_server(app_state: Arc<AppState>) -> Result<()> {
+pub async fn create_server(
+    app_state: Arc<AppState>,
+    bind: SocketAddr,
+    cors_allowed_origins: Vec<String>,
+) -> Result<()> {
     info!("Starting API server initialization");
 
-    let allowed_origins = dotenvy::var("CORS_ALLOWED_ORIGINS")
-        .unwrap_or_else(|_| "http://127.0.0.1:5500".to_string());
+    info!(?cors_allowed_origins, "Configured CORS allowed origins");
 
-    let origins = allowed_origins
-        .split(',')
-        .map(str::trim)
-        .filter(|s| !s.is_empty())
-        .map(str::parse::<http::HeaderValue>)
+    let allowed_origins = cors_allowed_origins
+        .iter()
+        .map(|origin| str::parse::<http::HeaderValue>(origin))
         .collect::<Result<Vec<_>, _>>()?;
-    info!(?origins, "Configured CORS allowed origins");
 
     let cors = CorsLayer::new()
-        .allow_origin(origins)
+        .allow_origin(allowed_origins)
         .allow_methods(Any)
         .allow_headers(Any);
 
@@ -50,8 +51,8 @@ pub async fn create_server(app_state: Arc<AppState>) -> Result<()> {
         .layer(cors)
         .with_state(app_state);
 
-    let listener = tokio::net::TcpListener::bind("0.0.0.0:8080").await?;
-    info!(address = "0.0.0.0:8080", "API listener bound");
+    let listener = tokio::net::TcpListener::bind(bind).await?;
+    info!(address = bind.to_string(), "API listener bound");
 
     info!("API server is running");
     axum::serve(listener, app).await?;
