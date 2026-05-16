@@ -17,6 +17,7 @@ use tracing::warn;
 async fn main() -> Result<()> {
     let settings = Settings::load()?;
     telemetry::init(&settings.logging.level, &settings.logging.dir)?;
+    settings.log_loaded_settings();
 
     let app_state = Arc::new(AppState {
         helius_api: HeliusApi::new(

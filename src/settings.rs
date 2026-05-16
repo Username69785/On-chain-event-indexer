@@ -15,12 +15,7 @@ pub struct Settings {
 
 impl Settings {
     pub fn load() -> Result<Self, ConfigError> {
-        match dotenvy::dotenv() {
-            Ok(path) => debug!(path = %path.display(), "Loaded .env file"),
-            Err(err) => debug!(%err, ".env file was not loaded"),
-        }
-
-        info!("Loading application settings");
+        dotenvy::dotenv().ok();
 
         let config = Config::builder()
             .add_source(File::with_name("config/default"))
@@ -33,18 +28,9 @@ impl Settings {
                     .list_separator(",")
                     .with_list_parse_key("server.cors_allowed_origins"),
             )
-            .build()
-            .map_err(|err| {
-                warn!(%err, "Failed to build settings");
-                err
-            })?;
+            .build()?;
 
-        let settings: Self = config.try_deserialize().map_err(|err| {
-            warn!(%err, "Failed to deserialize settings");
-            err
-        })?;
-
-        settings.log_loaded_settings();
+        let settings: Self = config.try_deserialize()?;
 
         Ok(settings)
     }
@@ -53,7 +39,7 @@ impl Settings {
         format!("{}{}", self.rpc.url, self.rpc.api_key)
     }
 
-    fn log_loaded_settings(&self) {
+    pub fn log_loaded_settings(&self) {
         info!(
             server_bind = %self.server.bind,
             worker_count = self.workers.count,
