@@ -16,4 +16,4 @@ count = 4
 
 [logging]
 level = "info"
-dir = "/home/main/Documents/Code/Rust/On-chain-event-indexer/logs/"
+dir = "logs/"
