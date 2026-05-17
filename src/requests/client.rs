@@ -1,3 +1,12 @@
+//! Facade for working with the Helius API.
+//!
+//! This module coordinates all other submodules, providing
+//! a single entry point `HeliusApi::new()` to perform requests.
+
+/// Main client (facade) for Helius API.
+///
+/// Holds the HTTP client, configuration, semaphores, and
+/// provides methods that delegate work to the respective modules.
 use std::time::{Duration, Instant};
 
 use anyhow::{Result, anyhow};
@@ -81,8 +90,7 @@ impl HeliusApi {
         rpc_endpoint: String,
     ) -> Result<Self> {
         let quota = Quota::per_second(
-            std::num::NonZeroU32::new(rps)
-                .ok_or_else(|| anyhow!("RPS не может быть равен нулю"))?,
+            std::num::NonZeroU32::new(rps).ok_or_else(|| anyhow!("RPS cannot be zero"))?,
         )
         .allow_burst(std::num::NonZeroU32::MIN);
         let rate_limiter = Arc::new(RateLimiter::direct(quota));
